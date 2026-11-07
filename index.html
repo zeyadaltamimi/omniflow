@@ -1,0 +1,2192 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#080c14">
+  <title>OmniFlow Prompt Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.344.0/dist/umd/lucide.min.js"></script>
+  <style>
+    html, body {
+      font-family: 'Cairo', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #080c14;
+      color: #f1f5f9;
+      overflow-x: hidden;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body { padding-bottom: calc(92px + env(safe-area-inset-bottom)); }
+    input, select, textarea { font-size: 16px !important; }
+    @media (min-width: 640px) { input, select, textarea { font-size: 14px !important; } }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; direction: ltr; text-align: left; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    .tap { min-height: 44px; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { scrollbar-width: none; }
+    .card { background: #0d1424; border: 1px solid #1e293b; border-radius: 1.1rem; }
+    .field { width: 100%; background: #060911; border: 1px solid #1e293b; border-radius: 0.65rem; padding: 0.55rem 0.7rem; color: #e2e8f0; }
+    .field:focus { outline: none; border-color: #10b981; }
+    .lbl { display: block; font-size: 12px; font-weight: 700; color: #94a3b8; margin-bottom: 4px; }
+    .chipsel { border: 1px solid #334155; background: #111a2e; color: #e2e8f0; }
+    .chipsel:hover { background: #17223a; }
+    .seg { color: #94a3b8; }
+    .seg.on { background: #1e293b; color: #fff; }
+    .tw { border: 1px solid #334155; background: #0f172a; color: #cbd5e1; }
+    .tw.on { border-color: #3b82f6; background: rgba(59,130,246,.2); color: #bfdbfe; }
+    .tab { background: #1e293b; color: #cbd5e1; }
+    .tab.on { background: #059669; color: #fff; }
+    details > summary::-webkit-details-marker { display: none; }
+    button:focus-visible, summary:focus-visible, textarea:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid #10b981; outline-offset: 2px; }
+    @keyframes pulse-ring { 0% { box-shadow: 0 0 0 0 rgba(244,63,94,.5); } 100% { box-shadow: 0 0 0 10px rgba(244,63,94,0); } }
+    .rec { animation: pulse-ring 1.2s infinite; border-color: #f43f5e !important; color: #fda4af !important; }
+    .sheet-panel { transition: transform .22s ease; }
+    @media (prefers-reduced-motion: reduce) { .sheet-panel, .rec { transition: none; animation: none; } }
+  </style>
+</head>
+<body class="min-h-screen antialiased selection:bg-emerald-600 selection:text-white">
+
+  <!-- Toast -->
+  <div id="toast" role="status" aria-live="polite" class="fixed z-[80] inset-x-4 sm:inset-x-auto sm:left-6 transition-all duration-300 opacity-0 pointer-events-none translate-y-4 max-w-md mx-auto sm:mx-0 flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-900/95 border border-emerald-500/60 shadow-2xl backdrop-blur" style="bottom: calc(88px + env(safe-area-inset-bottom));">
+    <div class="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center flex-shrink-0"><i data-lucide="check" class="w-5 h-5"></i></div>
+    <div class="flex-1 min-w-0">
+      <p id="toast-title" class="text-sm font-bold text-emerald-300"></p>
+      <p id="toast-desc" class="text-xs text-slate-300"></p>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <header class="border-b border-slate-800/80 bg-[#0b111e]/90 backdrop-blur sticky top-0 z-40">
+    <div class="max-w-2xl lg:max-w-6xl mx-auto px-4 py-2 flex items-center justify-between gap-2">
+      <div class="flex items-center gap-2">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-500 to-blue-600 flex items-center justify-center flex-shrink-0">
+          <i data-lucide="clapperboard" class="w-4 h-4 text-white"></i>
+        </div>
+        <div>
+          <h1 class="text-base font-black text-white leading-tight">OmniFlow Studio</h1>
+          <p class="text-xs text-slate-400">فكرتك بالعربي ← برومبت فيديو جاهز</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-1.5">
+        <button id="btn-history" type="button" aria-label="السجل والمفضلة" class="tap w-11 rounded-xl bg-slate-800/80 hover:bg-slate-700 border border-slate-700 flex items-center justify-center">
+          <i data-lucide="history" class="w-5 h-5 text-slate-200"></i>
+        </button>
+        <button id="btn-settings" type="button" aria-label="الإعدادات" class="tap w-11 rounded-xl bg-slate-800/80 hover:bg-slate-700 border border-slate-700 flex items-center justify-center">
+          <i data-lucide="settings" class="w-5 h-5 text-slate-200"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-2xl lg:max-w-6xl mx-auto px-4 py-4 flex flex-col gap-4 lg:grid lg:grid-cols-2 lg:gap-5 lg:items-start">
+
+    <!-- Column 1: input -->
+    <div class="contents lg:block lg:space-y-4">
+      <section class="order-1 card p-4 space-y-3" style="background: radial-gradient(circle at 50% 0%, rgba(16,185,129,.09), #0d1424 65%);">
+        <label for="idea" class="text-sm font-black text-white flex items-center gap-2">
+          <span class="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-300 text-xs flex items-center justify-center">1</span>
+          اكتب فكرتك بالعربي
+        </label>
+        <div class="rounded-xl border-2 border-slate-700/80 focus-within:border-emerald-500 bg-[#060911] transition">
+          <textarea id="idea" rows="4" class="w-full bg-transparent px-3.5 pt-3 pb-1 text-base leading-relaxed text-white placeholder:text-slate-500 focus:outline-none resize-none" placeholder="مثال: رجل سعودي يدخل مقهى، ثم يطلب قهوة ويقول: صباح الخير"></textarea>
+          <div class="flex items-center justify-between gap-2 px-2 pb-2">
+            <div class="flex items-center gap-1.5">
+              <button id="btn-mic" type="button" aria-label="إملاء صوتي" class="hidden tap px-3 rounded-lg border border-slate-700 bg-slate-800/80 text-slate-200 text-xs font-bold flex items-center gap-1.5">
+                <i data-lucide="mic" class="w-4 h-4"></i><span id="mic-label">تحدّث</span>
+              </button>
+              <button type="button" data-sheet="examples" id="btn-examples" class="hidden tap px-3 rounded-lg text-slate-400 hover:text-emerald-300 text-xs font-bold flex items-center gap-1.5">
+                <i data-lucide="lightbulb" class="w-4 h-4"></i>أمثلة
+              </button>
+              <button id="btn-clear" type="button" aria-label="مسح والبدء من جديد" class="tap px-3 rounded-lg text-slate-400 hover:text-rose-300 text-xs font-bold flex items-center gap-1.5">
+                <i data-lucide="eraser" class="w-4 h-4"></i>مسح
+              </button>
+            </div>
+            <span id="idea-hint" class="text-xs text-slate-500 px-1">افصل الأحداث بـ «ثم»</span>
+          </div>
+        </div>
+
+        <div id="examples-wrap" class="space-y-2">
+          <p class="text-xs font-bold text-slate-400">أو ابدأ بمثال:</p>
+          <div id="examples" class="grid grid-cols-2 gap-2"></div>
+        </div>
+
+        <div class="space-y-2 pt-1">
+          <p class="text-sm font-black text-white flex items-center gap-2">
+            <span class="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-300 text-xs flex items-center justify-center">2</span>
+            المراجع <span class="text-xs font-semibold text-slate-500">اختياري · صورة أو وصف</span>
+          </p>
+          <div id="ref-tiles" class="grid grid-cols-3 gap-2"></div>
+          <input id="ref-file" type="file" accept="image/*" class="hidden" aria-hidden="true">
+        </div>
+
+        <div class="space-y-2 pt-1">
+          <p class="text-sm font-black text-white flex items-center gap-2">
+            <span class="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-300 text-xs flex items-center justify-center">3</span>
+            الإعدادات <span class="text-xs font-semibold text-slate-500">اضغط لتغيير أي منها</span>
+          </p>
+          <div id="chips" class="flex flex-wrap gap-2"></div>
+        </div>
+      </section>
+
+      <!-- Extra details -->
+      <section class="order-3 card overflow-hidden">
+        <button id="btn-drawer" type="button" aria-expanded="false" aria-controls="drawer" class="tap w-full px-4 py-2 flex items-center justify-between gap-2 hover:bg-slate-800/40">
+          <span class="text-right">
+            <span class="block text-sm font-bold text-slate-200">تفاصيل إضافية <span class="text-xs font-semibold text-slate-500">(اختياري)</span></span>
+            <span class="block text-xs text-slate-500">الصوت · وصف الشخصية · الكاميرا</span>
+          </span>
+          <span class="flex items-center gap-2">
+            <span id="drawer-count" class="hidden text-xs font-bold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-200"></span>
+            <i id="drawer-chevron" data-lucide="chevron-down" class="w-5 h-5 text-slate-400 transition-transform"></i>
+          </span>
+        </button>
+        <div id="drawer" class="hidden border-t border-slate-800 p-4 space-y-5">
+
+          <div class="space-y-3">
+            <h3 class="text-sm font-black text-emerald-300 flex items-center gap-1.5"><i data-lucide="audio-lines" class="w-4 h-4"></i>الصوت</h3>
+            <div class="grid grid-cols-2 gap-2.5">
+              <div class="col-span-2">
+                <label class="lbl" for="f-dialogue">جملة منطوقة (تبقى بالعربي)</label>
+                <input id="f-dialogue" class="field tap" placeholder="مثال: هلا والله، حياك">
+              </div>
+              <div>
+                <label class="lbl" for="f-speaker">من يقولها؟</label>
+                <select id="f-speaker" class="field tap"></select>
+              </div>
+              <div>
+                <label class="lbl" for="f-dialect">اللهجة</label>
+                <select id="f-dialect" class="field tap">
+                  <option value="najdi">نجدية</option>
+                  <option value="hijazi">حجازية</option>
+                  <option value="gulf">خليجية</option>
+                  <option value="msa">فصحى</option>
+                  <option value="egyptian">مصرية</option>
+                  <option value="levantine">شامية</option>
+                  <option value="english">إنجليزي</option>
+                </select>
+              </div>
+              <div class="col-span-2">
+                <label class="lbl" for="f-music">الموسيقى</label>
+                <select id="f-music" class="field tap">
+                  <option value="none">بدون موسيقى</option>
+                  <option value="soft">موسيقى خفيفة تحت المشهد</option>
+                  <option value="custom">وصف خاص…</option>
+                </select>
+              </div>
+              <div id="music-custom-wrap" class="hidden col-span-2">
+                <label class="lbl" for="f-music-custom">وصف الموسيقى</label>
+                <input id="f-music-custom" class="field tap" placeholder="مثال: إيقاع طبول بطيء">
+              </div>
+              <div>
+                <label class="lbl" for="f-sfx">مؤثرات صوتية</label>
+                <input id="f-sfx" class="field tap" placeholder="تلقائي">
+              </div>
+              <div>
+                <label class="lbl" for="f-ambient">صوت الأجواء</label>
+                <input id="f-ambient" class="field tap" placeholder="تلقائي">
+              </div>
+            </div>
+          </div>
+
+          <div class="space-y-3">
+            <h3 class="text-sm font-black text-emerald-300 flex items-center gap-1.5"><i data-lucide="user-check" class="w-4 h-4"></i>الشخصية</h3>
+            <div>
+              <label class="lbl" for="f-bible">وصف ثابت للشخصية (يتكرر في كل لقطة)</label>
+              <textarea id="f-bible" rows="2" class="field" placeholder="اتركه فارغاً ليُبنى تلقائياً. مثال: شاب سعودي ثلاثيني، لحية خفيفة، ثوب أبيض وشماغ أحمر"></textarea>
+            </div>
+          </div>
+
+          <div class="space-y-3">
+            <h3 class="text-sm font-black text-emerald-300 flex items-center gap-1.5"><i data-lucide="camera" class="w-4 h-4"></i>الكاميرا والإضاءة</h3>
+            <div class="grid grid-cols-2 gap-2.5">
+              <div>
+                <label class="lbl" for="f-camera">حركة البداية</label>
+                <select id="f-camera" class="field tap">
+                  <option value="auto">تلقائي</option>
+                  <option value="smooth Steadicam tracking shot at eye level">تتبع سلس</option>
+                  <option value="slow 180-degree orbit">دوران 180°</option>
+                  <option value="low-angle push-in rising upward">سفلية تتقدم</option>
+                  <option value="handheld gimbal with subtle drift">جيمبال محمول</option>
+                  <option value="slow dolly-in">دولي يقترب</option>
+                  <option value="aerial drone descending shot">درون نازل</option>
+                </select>
+              </div>
+              <div>
+                <label class="lbl" for="f-lighting">الإضاءة</label>
+                <select id="f-lighting" class="field tap">
+                  <option value="auto">تلقائي</option>
+                  <option value="warm natural cinematic lighting with soft shadows">طبيعية دافئة</option>
+                  <option value="dark luxury lighting with soft gold rim light">فخامة داكنة</option>
+                  <option value="clean bright daylight with soft diffused shadows">نهارية نظيفة</option>
+                  <option value="neon cyan and magenta practical lighting">نيون</option>
+                  <option value="soft golden-hour sunlight">غروب ذهبي</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div id="product-fields" class="hidden space-y-3 p-3.5 rounded-xl border border-blue-500/30 bg-slate-950/60">
+            <h3 class="text-sm font-black text-blue-300 flex items-center gap-1.5"><i data-lucide="package" class="w-4 h-4"></i>المنتج</h3>
+            <div class="grid grid-cols-2 gap-2.5">
+              <div>
+                <label class="lbl" for="p-name">الاسم / البراند</label>
+                <input id="p-name" class="field tap" placeholder="اختياري">
+              </div>
+              <div>
+                <label class="lbl" for="p-container">العبوة</label>
+                <select id="p-container" class="field tap">
+                  <option value="">تلقائي</option>
+                  <option value="luxury glass perfume bottle">زجاجة عطر</option>
+                  <option value="aluminum beverage can">علبة مشروب</option>
+                  <option value="glass serum dropper bottle">سيروم بقطارة</option>
+                  <option value="matte cosmetic tube">أنبوب كريم</option>
+                  <option value="sleek electronic device">جهاز إلكتروني</option>
+                  <option value="food package">عبوة غذائية</option>
+                </select>
+              </div>
+              <div>
+                <label class="lbl" for="p-material">الخامة واللون</label>
+                <input id="p-material" class="field tap" placeholder="زجاج أسود مطفي">
+              </div>
+              <div>
+                <label class="lbl" for="p-action">حركة المنتج</label>
+                <select id="p-action" class="field tap">
+                  <option value="">تلقائي</option>
+                  <option value="the spray nozzle is pressed, releasing an ultra-fine golden mist">رش رذاذ</option>
+                  <option value="a hand pulls the tab with a crisp crack and the drink pours over ice">فتح وسكب</option>
+                  <option value="the dropper releases a single glossy droplet">قطرة سيروم</option>
+                  <option value="the product rotates slowly on a turntable">دوران على قاعدة</option>
+                  <option value="the product splashes into water in slow motion">سقوط في الماء</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div id="arabic-fields" class="hidden space-y-3 p-3.5 rounded-xl border border-amber-500/30 bg-slate-950/60">
+            <h3 class="text-sm font-black text-amber-300 flex items-center gap-1.5"><i data-lucide="pen-tool" class="w-4 h-4"></i>الخط العربي</h3>
+            <div class="grid grid-cols-2 gap-2.5">
+              <div class="col-span-2">
+                <label class="lbl" for="a-method">طريقة إظهار النص</label>
+                <select id="a-method" class="field tap">
+                  <option value="post">الأدق: مساحة فارغة + النص في المونتاج</option>
+                  <option value="frame">صورة الخط كإطار أول (Frames to Video)</option>
+                  <option value="model">يكتبه النموذج (قد تتشوه الحروف)</option>
+                </select>
+              </div>
+              <div>
+                <label class="lbl" for="a-text">العبارة</label>
+                <input id="a-text" class="field tap" placeholder="عيد مبارك">
+              </div>
+              <div>
+                <label class="lbl" for="a-font">الخط</label>
+                <select id="a-font" class="field tap">
+                  <option value="3D sculpted modern Kufic calligraphy with beveled gold edges">كوفي ذهبي</option>
+                  <option value="flowing Thuluth calligraphy in liquid gold">ثلث ذهبي</option>
+                  <option value="minimal geometric Arabic typography with soft neon edges">هندسي نيون</option>
+                </select>
+              </div>
+              <div>
+                <label class="lbl" for="a-anim">الحركة</label>
+                <select id="a-anim" class="field tap">
+                  <option value="silk">انكشاف حرير</option>
+                  <option value="dust">ذرات ذهبية</option>
+                  <option value="light">شعاع ضوء</option>
+                </select>
+              </div>
+              <div>
+                <label class="lbl" for="a-bg">الخلفية</label>
+                <select id="a-bg" class="field tap">
+                  <option value="deep midnight-blue silk with faint Islamic geometric shadow patterns">حرير كحلي</option>
+                  <option value="polished black marble with soft gold reflections">رخام أسود</option>
+                  <option value="warm sandstone wall with Najdi triangular openings">جدار نجدي</option>
+                  <option value="soft cream paper texture with delicate gold flakes">ورق كريمي</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <button id="btn-reset-details" type="button" class="tap w-full rounded-xl border border-slate-700 text-slate-300 text-sm font-bold hover:bg-slate-800">إرجاع التفاصيل للوضع التلقائي</button>
+        </div>
+      </section>
+    </div>
+
+    <!-- Column 2: result -->
+    <section id="result" class="order-2 lg:order-none card p-4 space-y-3 lg:sticky lg:top-20">
+      <div class="flex items-center justify-between gap-2">
+        <p class="text-sm font-black text-white flex items-center gap-2">
+          <span class="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-300 text-xs flex items-center justify-center">4</span>
+          النتيجة
+        </p>
+        <button id="btn-more" type="button" class="tap px-3 rounded-lg bg-slate-800 border border-slate-700 text-slate-200 text-xs font-bold flex items-center gap-1.5">
+          <i data-lucide="more-horizontal" class="w-4 h-4"></i>المزيد
+        </button>
+      </div>
+
+      <div id="empty-result" class="rounded-xl border border-dashed border-slate-700 p-6 text-center space-y-2">
+        <i data-lucide="wand-2" class="w-8 h-8 text-emerald-400 mx-auto"></i>
+        <p class="text-sm text-slate-300">اكتب فكرتك أو اختر مثالاً، وستظهر النتيجة هنا مباشرة.</p>
+      </div>
+
+      <div id="result-body" class="hidden space-y-3">
+        <div class="rounded-xl bg-[#060911] border border-slate-800 p-3 space-y-2">
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-xs font-bold text-slate-400">التسلسل كما فهمته الأداة</span>
+            <span id="story-meta" class="text-xs text-slate-500"></span>
+          </div>
+          <p id="story-summary" class="hidden text-sm text-slate-300"></p>
+          <ol id="storyboard" class="space-y-2"></ol>
+        </div>
+        <div id="notices" class="space-y-1.5"></div>
+
+        <div class="flex p-1 rounded-xl bg-[#060911] border border-slate-800" role="tablist">
+          <button type="button" data-seg="main" role="tab" class="seg tap flex-1 rounded-lg text-sm font-bold">برومبت واحد</button>
+          <button type="button" data-seg="shots" role="tab" class="seg tap flex-1 rounded-lg text-sm font-bold">لقطة بلقطة</button>
+          <button type="button" data-seg="edits" id="seg-edits" role="tab" class="seg tap flex-1 rounded-lg text-sm font-bold">تعديلات Omni</button>
+        </div>
+
+        <div id="pane-main" class="space-y-2.5">
+          <div id="tweaks" class="flex gap-1.5 overflow-x-auto no-scrollbar pb-0.5"></div>
+          <div id="manual-bar" class="hidden flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-xs text-amber-200">
+            <span>عدّلت النص يدوياً، فتوقف التحديث التلقائي.</span>
+            <button id="btn-regen" type="button" class="px-2.5 py-1.5 rounded-md bg-amber-600 hover:bg-amber-500 text-white font-bold whitespace-nowrap">أعد التوليد</button>
+          </div>
+          <textarea id="out-main" rows="13" spellcheck="false" aria-label="البرومبت الإنجليزي" class="field mono text-[13px] leading-relaxed" dir="ltr"></textarea>
+          <p id="paste-hint" class="text-xs text-slate-400"></p>
+        </div>
+
+        <div id="pane-shots" class="hidden space-y-2"></div>
+        <div id="pane-edits" class="hidden space-y-2"></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Sticky copy bar -->
+  <div class="fixed bottom-0 inset-x-0 z-40 border-t border-slate-800 bg-[#0b111e]/95 backdrop-blur" style="padding-bottom: env(safe-area-inset-bottom);">
+    <div class="max-w-2xl lg:max-w-6xl mx-auto px-4 py-3 flex items-center gap-2">
+      <button id="btn-fav" type="button" aria-label="حفظ في المفضلة" class="tap w-12 flex-shrink-0 rounded-xl bg-slate-800 border border-slate-700 text-amber-300 flex items-center justify-center disabled:opacity-40">
+        <i data-lucide="star" class="w-5 h-5"></i>
+      </button>
+      <button id="btn-copy" type="button" class="tap flex-1 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-base flex items-center justify-center gap-2 active:scale-[0.99] transition disabled:opacity-40 disabled:cursor-not-allowed">
+        <i data-lucide="copy" class="w-5 h-5"></i><span id="copy-label">نسخ البرومبت</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Bottom sheet (pickers & more) -->
+  <div id="sheet" class="hidden fixed inset-0 z-[60] flex items-end sm:items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+    <div data-close="sheet" class="absolute inset-0 bg-black/60"></div>
+    <div class="sheet-panel relative w-full sm:max-w-lg max-h-[85vh] flex flex-col bg-[#0b111e] border border-slate-800 rounded-t-2xl sm:rounded-2xl">
+      <div class="flex items-center justify-between gap-2 p-4 pb-2">
+        <h2 id="sheet-title" class="text-base font-black"></h2>
+        <button data-close="sheet" type="button" aria-label="إغلاق" class="tap w-11 rounded-lg bg-slate-800 flex items-center justify-center"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <div id="sheet-body" class="overflow-y-auto px-4 pb-5 space-y-2" style="padding-bottom: calc(20px + env(safe-area-inset-bottom));"></div>
+    </div>
+  </div>
+
+  <!-- History drawer -->
+  <div id="history" class="hidden fixed inset-0 z-50">
+    <div data-close="history" class="absolute inset-0 bg-black/60"></div>
+    <aside class="absolute top-0 bottom-0 left-0 w-full sm:w-[400px] bg-[#0b111e] border-r border-slate-800 flex flex-col">
+      <div class="p-4 border-b border-slate-800 flex items-center justify-between">
+        <h2 class="text-base font-black">السجل والمفضلة</h2>
+        <button data-close="history" type="button" aria-label="إغلاق" class="tap w-11 rounded-lg bg-slate-800 flex items-center justify-center"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <div class="px-4 pt-3 flex gap-1.5">
+        <button type="button" data-hfilter="all" class="tab tap px-3 rounded-lg text-sm font-bold">الكل</button>
+        <button type="button" data-hfilter="fav" class="tab tap px-3 rounded-lg text-sm font-bold">المفضلة</button>
+      </div>
+      <div id="history-list" class="flex-1 overflow-y-auto p-4 space-y-2"></div>
+    </aside>
+  </div>
+
+  <!-- Settings modal -->
+  <div id="settings" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center" role="dialog" aria-modal="true">
+    <div data-close="settings" class="absolute inset-0 bg-black/60"></div>
+    <div class="relative w-full sm:max-w-md bg-[#0b111e] border border-slate-800 rounded-t-2xl sm:rounded-2xl p-5 space-y-4" style="padding-bottom: calc(20px + env(safe-area-inset-bottom));">
+      <div class="flex items-center justify-between">
+        <h2 class="text-base font-black">دقة أعلى مع Gemini (اختياري)</h2>
+        <button data-close="settings" type="button" aria-label="إغلاق" class="tap w-11 rounded-lg bg-slate-800 flex items-center justify-center"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <p class="text-sm text-slate-300 leading-relaxed">الأداة تعمل مجاناً بدون أي ربط. إذا أضفت مفتاح Gemini يظهر زر «صياغة بـ Gemini» ليفهم أي فكرة ويقسّمها لقطات بدقة أعلى.</p>
+      <div>
+        <label class="lbl" for="s-key">مفتاح Google AI Studio</label>
+        <input id="s-key" type="password" class="field tap mono" placeholder="AIza..." autocomplete="off">
+        <p class="text-xs text-slate-500 mt-1">يُحفظ تلقائياً في متصفحك فقط، ولا يُرسل إلا إلى Google.</p>
+      </div>
+      <div>
+        <label class="lbl" for="s-model">اسم النموذج</label>
+        <input id="s-model" class="field tap mono" list="model-list" value="gemini-2.5-flash">
+        <datalist id="model-list">
+          <option value="gemini-2.5-flash"></option>
+          <option value="gemini-2.5-pro"></option>
+          <option value="gemini-3-flash-preview"></option>
+          <option value="gemini-3-pro-preview"></option>
+        </datalist>
+      </div>
+      <div class="flex gap-2">
+        <button id="s-save" type="button" class="tap flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-bold">تم</button>
+        <button id="s-clear" type="button" class="tap px-4 rounded-xl bg-slate-800 border border-slate-700 text-rose-300 font-bold">حذف المفتاح</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+/* =========================================================
+   OmniFlow Prompt Studio v3.3
+   Pipeline: Arabic idea → brief (local or Gemini) → engine-specific prompt
+   ========================================================= */
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const cap = (s) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+const hasArabic = (s) => /[؀-ۿ]/.test(s || '');
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+};
+function initIcons() { try { window.lucide && window.lucide.createIcons(); } catch (e) {} }
+
+/* ---------------- Engines ---------------- */
+const ENGINES = {
+  omni:   { label: 'Gemini Omni Flash', where: 'Google Flow',       durations: [4, 6, 8],    def: 8,  aspects: ['9:16', '16:9'],        negField: false, arabicSpeech: true },
+  veo31:  { label: 'Veo 3.1',           where: 'Google Flow / Vertex', durations: [4, 6, 8], def: 8,  aspects: ['9:16', '16:9'],        negField: true,  arabicSpeech: true },
+  kling3: { label: 'Kling 3.0',         where: 'Kling',             durations: [5, 10, 15],  def: 10, aspects: ['9:16', '16:9', '1:1'], negField: true,  arabicSpeech: false },
+  sora2:  { label: 'Sora 2',            where: 'Sora',              durations: [10, 15, 25], def: 10, aspects: ['9:16', '16:9'],        negField: false, arabicSpeech: true }
+};
+
+const MODES = {
+  auto: 'تلقائي', reels: 'ريلز', cinematic: 'سينمائي', ugc: 'UGC', product: 'إعلان منتج', arabic: 'خط عربي'
+};
+
+const DIALECTS = {
+  najdi: 'Najdi Saudi Arabic', hijazi: 'Hijazi Saudi Arabic', gulf: 'Gulf Arabic', msa: 'Modern Standard Arabic',
+  egyptian: 'Egyptian Arabic', levantine: 'Levantine Arabic', english: 'English'
+};
+
+/* ---------------- Cultural dictionary (normalized Arabic: ا for أإآ, ي for ى) ---------------- */
+const DICT = [
+  { src: '(?:جندي|رجل|شخص|مقاتل)\\s*ملثم(?:\\s*ب(?:زي|لبس)\\s*(?:عسكري|تكتيكي))?', type: 'person', short: 'the masked soldier', full: 'a tall masked special-forces soldier in a plain black balaclava, tactical headset and dark combat vest', ar: 'جندي ملثم' },
+  { src: 'شخصي[ةه]\\s*اصلي[ةه]', type: 'person', short: 'the original hero', full: 'an original costumed hero of your own design (describe the outfit, colors and silhouette in the character field)', ar: 'شخصية أصلية' },
+  { src: 'صقار', type: 'person', short: 'the falconer', full: 'a Saudi falconer in a beige thobe and shemagh wearing a leather falconry glove', ar: 'صقّار' },
+  { src: 'الشايب|شايب|كبير\\s*السن|الشيب[ةه]|المعزب|المضيف', type: 'person', short: 'the elderly host', full: 'a grey-bearded elderly Saudi host in a white thobe and a brown bisht', ar: 'الشايب (المضيف)' },
+  { src: '(?:رجال|شباب|اشخاص)\\s*سعوديين|سعوديين', type: 'person', short: 'the Saudi men', full: 'three Saudi men in crisp white thobes, red-and-white shemagh and black egal', ar: 'رجال سعوديون' },
+  { src: '(?:امراة|بنت|فتا[ةه]|سيد[ةه])\\s*سعودي[ةه]', type: 'person', short: 'the young Saudi woman', full: 'a young Saudi woman in an elegant black abaya and a loose black shayla, natural makeup', ar: 'فتاة سعودية' },
+  { src: '(?:رجل|شاب)\\s*سعودي', type: 'person', short: 'the Saudi man', full: 'a Saudi man in his thirties in a white thobe and a red-and-white shemagh', ar: 'رجل سعودي' },
+  { src: 'مجلس\\s*(?:سعودي|عربي|رجال|نجدي)|المجلس\\s*السعودي|مشب|مجلس', type: 'setting', short: 'the Saudi majlis', full: 'a traditional Najdi majlis: floor seating with red Sadu cushions along the walls, a carved wooden door, brass dallah coffee pots on glowing embers, oud smoke in warm amber light', ambient: 'low murmur of men talking, crackling embers', ar: 'مجلس سعودي' },
+  { src: 'كثبان(?:\\s*الصحراء)?|الصحراء|صحراء|النفود|الربع\\s*الخالي|طعوس', type: 'setting', short: 'the desert dunes', full: 'golden Arabian sand dunes with long soft shadows', ambient: 'soft desert wind, sand hissing', ar: 'صحراء' },
+  { src: 'بيوت\\s*طين|حي\\s*قديم|الدرعي[ةه]|البجيري', type: 'setting', short: 'the old mud-brick quarter', full: 'historic Najdi mud-brick architecture with triangular wall openings and palm-trunk beams', ambient: 'light breeze, distant birds', ar: 'عمارة نجدية طينية' },
+  { src: 'كوفي\\s*شوب|مقهي|كافي[هة]', type: 'setting', short: 'the coffee shop', full: 'a modern specialty coffee shop with warm wood, soft daylight and an espresso machine', ambient: 'espresso machine hiss, soft chatter', ar: 'مقهى' },
+  { src: '(?:بالسلام|السلام|سلام)\\s*النجدي(?:\\s*السعودي)?', type: 'action', withB: true, short: 'the traditional Najdi greeting (a firm right-hand handshake, then leaning in for a respectful nose-to-nose greeting)', ar: 'السلام النجدي' },
+  { src: 'فنجا[نل]\\s*قهو[ةه]|قهو[ةه]\\s*(?:سعودي[ةه]|عربي[ةه])|دل[ةه]\\s*وفنجا[نل]|فنجا[نل]', type: 'prop', short: 'a small finjan of Saudi cardamom coffee poured from a brass dallah', sfx: ['coffee pouring into a finjan'], ar: 'قهوة سعودية' },
+  { src: 'صقر|حر\\s*اشقر', type: 'prop', short: 'a peregrine falcon', sfx: ['falcon wings flapping', 'small falconry bell jingling'], ar: 'صقر' },
+  { src: 'بخور|مبخر[ةه]|دخون', type: 'prop', short: 'oud incense smoke rising from a brass mabkhara', ar: 'بخور' },
+  { src: '(?:زجاج[ةه]|غرش[ةه])\\s*عطر|عطر', type: 'prop', product: true, short: 'the perfume bottle', full: 'a luxury glass perfume bottle', sfx: ['soft spray hiss'], ar: 'عطر' },
+  { src: 'علب[ةه]\\s*(?:كانز|مشروب)|كانز|مشروب\\s*(?:طاق[ةه]|غازي)', type: 'prop', product: true, short: 'the ice-cold can', full: 'an ice-cold aluminum drink can covered in condensation droplets', sfx: ['crisp can-opening crack', 'fizzing pour over ice'], ar: 'علبة مشروب' },
+  { src: 'سيروم|قطار[ةه]', type: 'prop', product: true, short: 'the serum dropper bottle', full: 'an amber glass serum dropper bottle', sfx: ['soft droplet tap'], ar: 'سيروم' },
+  { src: 'سنيكرز|حذاء\\s*رياضي|جزم[ةه]\\s*رياضي[ةه]', type: 'prop', product: true, short: 'the sneaker', full: 'a futuristic athletic sneaker', ar: 'حذاء رياضي' },
+  { src: 'امطار|مطر', type: 'fx', short: 'rain', ambient: 'steady rain', ar: 'مطر' }
+];
+
+/* Protected characters → original, generic stand-ins (never look-alikes) */
+const IP_RULES = [
+  { src: '(?:شخصي[ةه]\\s*)?(?:قوست|غوست|ghost)(?:\\s*(?:اللي|الي|من)?\\s*(?:في|ب)?\\s*(?:سلسل[ةه]|لعب[ةه])?\\s*(?:كود|كول\\s*اوف\\s*ديوتي|call\\s*of\\s*duty))?', to: 'جندي ملثم', name: 'Ghost (Call of Duty)' },
+  { src: '(?:شخصي[ةه]\\s*)?(?:سبايدر\\s*مان|spider-?man|باتمان|batman|سوبر\\s*مان|superman|ايرون\\s*مان|iron\\s*man|ماريو|mario|سونيك|sonic|ميكي\\s*ماوس|mickey|بيكاتشو|pikachu|هاري\\s*بوتر|harry\\s*potter)', to: 'شخصية اصلية', name: 'شخصية محمية' },
+  { src: '(?:سلسل[ةه]|لعب[ةه])\\s*(?:كود|كول\\s*اوف\\s*ديوتي)|call\\s*of\\s*duty', to: '', name: 'Call of Duty' }
+];
+
+/* Offline fallback verbs (used only when translation is unavailable) */
+const VERBS = [
+  ['يسلم علي', 'greets'], ['تسلم علي', 'greets'], ['يقدم له', 'offers him'], ['تقدم له', 'offers him'], ['ينزل علي', 'lands on'],
+  ['يدخل', 'enters'], ['تدخل', 'enters'], ['يصافح', 'shakes hands with'], ['يقدم', 'offers'], ['يصب', 'pours'], ['يجلس', 'sits'], ['تجلس', 'sits'],
+  ['يمشي', 'walks'], ['تمشي', 'walks'], ['يركض', 'runs'], ['يبتسم', 'smiles'], ['تبتسم', 'smiles'], ['يرفع', 'lifts'], ['ترفعها', 'lifts it'],
+  ['يفتح', 'opens'], ['تفتحها', 'opens it'], ['يطير', 'flies'], ['يطفو', 'floats'], ['يدور', 'rotates'], ['ببطء', 'slowly'], ['تمسك', 'holds'],
+  ['يمسك', 'holds'], ['الجوال', 'the phone'], ['تتكلم', 'talks'], ['يتكلم', 'talks'], ['للكاميرا', 'to the camera'], ['فوق', 'above'],
+  ['الهواء', 'the air'], ['يد', 'a hand'], ['في', 'in'], ['علي', 'on'], ['مع', 'with']
+];
+
+/* ---------------- Examples ---------------- */
+const EXAMPLES = [
+  { key: 'majlis', icon: '☕', label: 'ضيف في مجلس سعودي', mode: 'cinematic',
+    idea: 'جندي ملثم بزي تكتيكي يدخل مجلس سعودي ويسلم على رجال سعوديين بالسلام النجدي، ثم يقدم له الشايب فنجال قهوة ويقول: حياك الله تفضل',
+    en: ['The masked soldier pushes open the carved wooden door and steps into the Saudi majlis', 'The Saudi men rise; he greets each of them with the traditional Najdi greeting (a firm right-hand handshake, then leaning in for a respectful nose-to-nose greeting)', 'The elderly host pours a small finjan of Saudi cardamom coffee from a brass dallah and offers it to him with his right hand'] },
+  { key: 'perfume', icon: '✨', label: 'عطر فاخر', mode: 'product',
+    idea: 'عطر رجالي فاخر لونه أسود مطفي مع غطاء ذهبي على سطح رخام مبلل، الكاميرا تدور حوله ببطء، ثم يخرج رذاذ عطر ناعم بالحركة البطيئة',
+    en: ['A luxury men\'s perfume bottle in matte black glass with a gold cap rests on a wet black marble surface', 'The camera circles slowly around the bottle as light glides across its edges', 'A fine mist of perfume bursts from the nozzle in slow motion'] },
+  { key: 'soda', icon: '🥤', label: 'مشروب طاقة', mode: 'product',
+    idea: 'علبة كانز مشروب طاقة ليمون ونعناع باردة عليها قطرات ماء، يد ترفعها وتفتحها بصوت غازات قوي، ثم ينسكب المشروب في كأس ثلج',
+    en: ['An ice-cold lemon-mint energy drink can glistens with condensation droplets', 'A hand lifts the can', 'The hand pulls the tab with a loud carbonation crack', 'The drink pours into a glass full of ice, bubbles rising'] },
+  { key: 'ugc', icon: '🤳', label: 'تجربة سيروم UGC', mode: 'ugc',
+    idea: 'بنت سعودية تمسك الجوال وتتكلم للكاميرا عن تجربتها مع سيروم فيتامين سي وتقول: والله فرق معي من أول أسبوع',
+    en: ['The young Saudi woman holds the phone at arm\'s length, smiling into the front camera', 'She talks to the camera about her experience with the vitamin C serum, holding the bottle up next to her face'] },
+  { key: 'falcon', icon: '🦅', label: 'صقر في الصحراء', mode: 'cinematic',
+    idea: 'صقر يطير فوق كثبان الصحراء وقت الغروب، ثم ينزل على يد صقار',
+    en: ['A peregrine falcon glides low over the desert dunes at sunset', 'The falcon flares its wings and lands on the falconer\'s gloved hand'] },
+  { key: 'eid', icon: '🌙', label: 'تهنئة عيد بخط عربي', mode: 'arabic', arabicText: 'عيد مبارك',
+    idea: 'موشن جرافيك بخط عربي كوفي ذهبي يظهر من قماش حرير كحلي مع ذرات ذهبية', en: null },
+  { key: 'sneaker', icon: '👟', label: 'حذاء رياضي', mode: 'product',
+    idea: 'حذاء رياضي مستقبلي يطفو في الهواء ويدور ببطء مع إضاءة نيون',
+    en: ['A futuristic athletic sneaker floats in mid-air', 'The sneaker rotates slowly, neon light tracing its carbon-fiber sole'] }
+];
+
+const TWEAKS = [
+  { id: 'slow', ar: 'أبطأ' }, { id: 'close', ar: 'أقرب' }, { id: 'handheld', ar: 'كاميرا محمولة' }, { id: 'macro', ar: 'ماكرو' },
+  { id: 'night', ar: 'ليلي' }, { id: 'golden', ar: 'غروب ذهبي' }, { id: 'bokeh', ar: 'خلفية ضبابية' }, { id: 'haze', ar: 'دخان وأشعة ضوء' }
+];
+
+/* ---------------- State ---------------- */
+const state = {
+  mode: 'auto',
+  engine: 'omni',
+  duration: 8,
+  aspect: '9:16',
+  tab: 'main',
+  tweaks: new Set(),
+  brief: null,
+  briefSource: 'local',
+  geminiIdea: null,
+  manualEdit: false,
+  out: null,
+  translateOk: true,
+  buildId: 0,
+  hfilter: 'all',
+  exampleEn: null
+};
+const trCache = new Map();
+let trDownUntil = 0;
+
+/* ---------------- Text helpers ---------------- */
+function normalize(s) {
+  return String(s || '')
+    .replace(/[ً-ْـ]/g, '')
+    .replace(/[أإآ]/g, 'ا')
+    .replace(/ى/g, 'ي');
+}
+
+function detectMode(text) {
+  const t = normalize(text);
+  if (!t.trim()) return 'reels';
+  if (/خط\s*عربي|موشن\s*جرافيك|كوفي(?!\s*شوب)|ثلث|مخطوط|تايبوغرافي|كتاب[ةه]\s*عربي[ةه]/.test(t)) return 'arabic';
+  if (/ugc|يو\s*جي\s*سي|سيلفي|(?:يتكلم|تتكلم|يحكي|تحكي)\s*(?:لل|مع\s*ال)كاميرا|ريفيو|review|تجربت(?:ي|ها|ه)\s*مع/i.test(t)) return 'ugc';
+  const productHit = /(?:اعلان|دعاي[ةه])\s*(?:منتج|لمنتج)|عطر|سيروم|قطار[ةه]|كانز|علب[ةه]|زجاج[ةه]|كريم|شامبو|منتج|عبو[ةه]|سنيكرز|حذاء|ساع[ةه]\s*يد|جوال\s*جديد/.test(t);
+  const sceneHit = /مجلس|يسلم|تسلم|شخصي[ةه]|جندي|رجال|ملثم/.test(t);
+  if (productHit && !sceneHit) return 'product';
+  if (/سينمائي|فيلم|درامي|ملحمي|سينما/.test(t)) return 'cinematic';
+  return 'reels';
+}
+function effectiveMode() {
+  if (state.mode !== 'auto') return state.mode;
+  const sc = activeScenario();
+  if (sc === 'ugc') return 'ugc';
+  if (sc && sc !== 'idea') return 'product';
+  if (!$('idea').value.trim() && refInfo().hasProd) return 'product';
+  return detectMode($('idea').value);
+}
+
+/* Remove protected characters and record warnings */
+function applyIpGuard(text, warnings) {
+  let t = text;
+  IP_RULES.forEach((r) => {
+    const re = new RegExp(r.src, 'gi');
+    if (re.test(t)) {
+      t = t.replace(new RegExp(r.src, 'gi'), ' ' + r.to + ' ');
+      if (r.to) warnings.push({ kind: 'ip', text: `استبدلنا «${r.name}» بشخصية أصلية: النماذج ترفض الشخصيات المحمية، وبيعها لعميل فيه مخاطرة حقوقية. صف شكلك الخاص في «الشخصية».` });
+    }
+  });
+  return t.replace(/\s{2,}/g, ' ').trim();
+}
+
+/* Extract spoken lines → placeholders */
+function extractSpeech(text) {
+  const speeches = [];
+  let t = text.replace(/["«“]([^"»”]{2,})["»”]/g, (m, line) => {
+    speeches.push(line.trim());
+    return ` ⟦S${speeches.length - 1}⟧ `;
+  });
+  t = t.replace(/\s*و?(?:يقول|تقول|يقولون|يقولوا|قال|قالت|يرد|ترد|يرحب\s*ب[هـ]?\s*قائلا|قائلا[ًا]?)\s*[:：]\s*(.+?)(?=\s*(?:\.|\n|،\s*ثم|\s+ثم\s+|$))/g, (m, line) => {
+    speeches.push(line.trim());
+    return ` ⟦S${speeches.length - 1}⟧ `;
+  });
+  t = t.replace(/\s*و?(?:يقول|تقول|يقولون)\s+(.+?)(?=\s*(?:\.|\n|،\s*ثم|\s+ثم\s+|$))/g, (m, line) => {
+    speeches.push(line.trim());
+    return ` ⟦S${speeches.length - 1}⟧ `;
+  });
+  return { text: t, speeches };
+}
+
+function splitClauses(text) {
+  return text
+    .split(/[.؛;!\n]+|،|,|\s+ثم\s+|\s+بعدين\s+|\s+وبعدها\s+|\s+وبعد\s+كذا\s+|\s+(?=و(?:ي|ت)[ء-ي]{2,})/)
+    .map((c) => c.replace(/^\s*(?:ثم\s+|و(?=[يت]))/, '').trim())
+    .filter((c) => c.replace(/⟦S\d+⟧/g, '').trim().length >= 3 || /⟦S\d+⟧/.test(c));
+}
+
+/* Free translation (unofficial endpoint) with cache & timeout */
+async function translate(text) {
+  const t = String(text || '').trim();
+  if (!t || !hasArabic(t)) return { en: t, ok: true };
+  if (trCache.has(t)) return { en: trCache.get(t), ok: true };
+  if (Date.now() < trDownUntil) return { en: offlineTranslate(t), ok: false };
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 3500);
+    const url = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=ar&tl=en&dt=t&q=' + encodeURIComponent(t);
+    const res = await fetch(url, { signal: ctrl.signal });
+    clearTimeout(timer);
+    if (!res.ok) throw new Error('http ' + res.status);
+    const data = await res.json();
+    const en = data[0].map((p) => p[0]).join('').trim();
+    trCache.set(t, en);
+    return { en, ok: true };
+  } catch (e) {
+    trDownUntil = Date.now() + 60000;
+    return { en: offlineTranslate(t), ok: false };
+  }
+}
+function offlineTranslate(t) {
+  let out = ' ' + normalize(t) + ' ';
+  VERBS.forEach(([ar, en]) => { out = out.replace(new RegExp('(^|\\s)' + ar + '(?=\\s|$)', 'g'), '$1' + en); });
+  return out.replace(/\s{2,}/g, ' ').trim();
+}
+function cleanEn(s) {
+  return cap(String(s || '')
+    .replace(/Najdi\s+(Saudi\s+)?peace/gi, 'traditional Najdi greeting')
+    .replace(/\b(?:in|from)\s+the\s+code\s+series\b/gi, 'from the Call of Duty series')
+    .replace(/\s+([,.])/g, '$1')
+    .replace(/[.。\s]+$/, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim());
+}
+
+/* ---------------- Local brief builder ---------------- */
+async function buildLocalBrief(rawIdea) {
+  const warnings = [];
+  const ex = EXAMPLES.find((e) => e.idea === rawIdea.trim());
+  let text = rawIdea;
+  const sp = extractSpeech(text);
+  const rawClauses = splitClauses(sp.text);
+
+  const persons = [], props = [], sfx = [], ambient = [], found = [];
+  let setting = null;
+  let lastPerson = null;
+  const beats = [];
+  let translateOk = true;
+
+  for (const rawClause of rawClauses) {
+    const clause = normalize(rawClause);
+    let c = clause;
+    const speechIds = [...c.matchAll(/⟦S(\d+)⟧/g)].map((m) => +m[1]);
+    c = c.replace(/⟦S\d+⟧/g, ' ').trim();
+    let clausePerson = null;
+    DICT.forEach((d) => {
+      c = c.replace(new RegExp('(?<![ء-ي])(?:و|ب|ل|ف)?(?:ال)?(?:' + d.src + ')', 'g'), (m) => {
+        if (!found.some((f) => f.ar === d.ar)) found.push({ ar: d.ar, type: d.type });
+        if (d.type === 'person' && !persons.some((p) => p.short === d.short)) persons.push({ short: d.short, full: d.full, ar: d.ar });
+        if (d.type === 'person') clausePerson = d;
+        if (d.type === 'setting' && !setting) setting = { full: d.full, ar: d.ar, short: d.short };
+        if (d.type === 'prop' && !props.some((p) => p.short === d.short)) props.push(d);
+        (d.sfx || []).forEach((s) => { if (!sfx.includes(s)) sfx.push(s); });
+        if (d.ambient && !ambient.includes(d.ambient)) ambient.push(d.ambient);
+        const inline = d.withB && m.startsWith('ب') ? 'with ' + d.short : d.short;
+        return ' ' + inline + ' ';
+      });
+    });
+    if (clausePerson) lastPerson = clausePerson;
+    if (/يدخل|تدخل|باب/.test(clause) && !sfx.includes('heavy wooden door creak')) sfx.unshift('heavy wooden door creak');
+
+    const arDisplay = rawClause.replace(/⟦S\d+⟧/g, '').trim();
+    beats.push({
+      ar: arDisplay || 'حوار',
+      src: c.replace(/\s{2,}/g, ' ').trim(),
+      en: '',
+      speeches: speechIds.map((i) => ({ speaker: (lastPerson && lastPerson.short) || (persons[0] && persons[0].short) || 'the main character', line: sp.speeches[i] }))
+    });
+  }
+
+  const useCurated = ex && ex.en && ex.en.length === beats.length;
+  if (!useCurated) {
+    const results = await Promise.all(beats.map((bt) => translate(bt.src)));
+    results.forEach((r, i) => { beats[i].en = cleanEn(r.en); if (!r.ok) translateOk = false; });
+  }
+
+  // Curated English for built-in examples (consistent quality, works offline)
+  if (useCurated) beats.forEach((b, i) => { b.en = ex.en[i]; });
+  if (!translateOk) warnings.push({ kind: 'tr', text: 'الترجمة المجانية غير متاحة الآن، فاستخدمنا قاموساً مبسطاً. فعّل Gemini من الإعدادات أو راجع الإنجليزي قبل النسخ.' });
+
+  return { source: 'local', persons, setting, props, sfx, ambient, beats, found, warnings, summaryAr: '' };
+}
+
+/* ---------------- Gemini brief builder ---------------- */
+function geminiSystemPrompt(target) {
+  const glossary = DICT.filter((d) => d.full || d.type === 'action').map((d) => `- ${d.ar}: ${d.full || d.short}`).join('\n');
+  return `You are a senior AI-video prompt director specialised in Saudi and Gulf content. Convert the user's Arabic video idea into a structured shot brief. Reply with JSON only.
+
+Rules:
+- Describe only what is visible and audible, in concrete cinematic English (who, what they do, where).
+- Split the idea into ${target} sequential beats with one clear action each, keeping the user's order. Fewer is fine if the idea is short.
+- Keep every character, person and brand exactly as the user names them. Set ip_note to null.
+- Spoken lines stay in Arabic exactly as written, only in "dialogue".
+- Positive phrasing only: describe what is there, never "no X".
+- Be culturally accurate for Saudi Arabia. Glossary:
+${glossary}
+
+JSON schema:
+{"summary_ar": string (one Arabic sentence),
+ "characters": [{"id": string (short English reference such as "the elderly host"), "description_en": string (fixed visual description: age, face, hair, outfit, colors), "ar": string}],
+ "setting_en": string, "setting_ar": string,
+ "beats": [{"ar": string (short Arabic description), "action_en": string}],
+ "dialogue": [{"beat": number (0-based), "speaker_id": string, "line_ar": string}],
+ "sfx": [string], "ambient": [string], "ip_note": string or null}`;
+}
+
+async function buildGeminiBrief(rawIdea) {
+  const key = store.get('of_key', '');
+  const model = store.get('of_model', 'gemini-2.5-flash') || 'gemini-2.5-flash';
+  if (!key) throw new Error('لا يوجد مفتاح');
+  const mode = effectiveMode();
+  const target = targetBeats(state.duration);
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 45000);
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+    method: 'POST',
+    signal: ctrl.signal,
+    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: geminiSystemPrompt(target) }] },
+      contents: [{ role: 'user', parts: [{ text: `Video type: ${mode}. Target engine: ${ENGINES[state.engine].label}. Duration: ${state.duration}s.\nIdea (Arabic): ${rawIdea}` }] }],
+      generationConfig: { responseMimeType: 'application/json', temperature: 0.6 }
+    })
+  });
+  clearTimeout(timer);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error((data.error && data.error.message) || ('HTTP ' + res.status));
+  const txt = (((data.candidates || [])[0] || {}).content || {}).parts?.map((p) => p.text).join('') || '';
+  const g = JSON.parse(txt.replace(/^```json|```$/g, '').trim());
+
+  const persons = (g.characters || []).map((c) => ({ short: c.id, full: c.description_en, ar: c.ar }));
+  const beats = (g.beats || []).map((b) => ({ ar: b.ar, en: cleanEn(b.action_en), speeches: [] }));
+  (g.dialogue || []).forEach((d) => {
+    const i = Math.min(Math.max(0, d.beat | 0), Math.max(0, beats.length - 1));
+    if (beats[i]) beats[i].speeches.push({ speaker: d.speaker_id || 'the main character', line: d.line_ar });
+  });
+  const warnings = [];
+  if (g.ip_note) warnings.push({ kind: 'ip', text: g.ip_note });
+  return {
+    source: 'gemini', persons, beats, warnings,
+    setting: g.setting_en ? { full: g.setting_en, ar: g.setting_ar || '' } : null,
+    props: [], sfx: g.sfx || [], ambient: g.ambient || [],
+    found: persons.map((p) => ({ ar: p.ar, type: 'person' })).concat(g.setting_ar ? [{ ar: g.setting_ar, type: 'setting' }] : []),
+    summaryAr: g.summary_ar || ''
+  };
+}
+
+/* ---------------- Field translations (bible, product, audio extras) ---------------- */
+async function translateFields() {
+  const ids = ['f-bible', 'p-material', 'f-sfx', 'f-ambient', 'f-music-custom'];
+  const vals = await Promise.all(ids.map(async (id) => {
+    const v = $(id).value.trim();
+    return v ? cleanEn((await translate(v)).en) : '';
+  }));
+  const out = {};
+  ids.forEach((id, i) => { out[id] = vals[i]; });
+  const slots = ['character', 'product', 'style'];
+  const rv = await Promise.all(slots.map(async (sl) => {
+    const x = state.refs[sl];
+    if (!x) return '';
+    if (x.descEn) return x.descEn;
+    const v = (x.desc || '').trim();
+    return v ? cleanEn((await translate(v)).en) : '';
+  }));
+  slots.forEach((sl, i) => { out['ref-' + sl] = rv[i]; });
+  return out;
+}
+
+/* ---------------- Beat planning ---------------- */
+function targetBeats(d) { return d <= 4 ? 2 : d <= 8 ? 3 : d <= 12 ? 4 : d <= 15 ? 5 : 6; }
+const fmtT = (s) => '00:' + String(Math.round(s)).padStart(2, '0');
+
+function openingBeat(mode, b) {
+  const subj = refInfo().C || refInfo().P || (b.persons[0] && b.persons[0].short) || (b.props[0] && b.props[0].short) || 'the subject';
+  const where = b.setting ? b.setting.short || 'the location' : '';
+  const map = {
+    reels: { en: `Hook: the shot opens mid-motion on ${subj}${where ? ' in ' + where : ''}`, ar: 'افتتاحية سريعة تشد الانتباه' },
+    cinematic: { en: `Establishing view of ${where || subj}, details revealed as the camera moves`, ar: 'لقطة تأسيسية للمكان' },
+    ugc: { en: `${b.persons[0] ? cap(b.persons[0].short) : 'The creator'} holds the phone at arm's length and starts talking to the camera`, ar: 'بداية سيلفي والحديث للكاميرا' },
+    product: { en: `${cap(subj)} rises into a centered hero frame`, ar: 'ظهور المنتج في منتصف الكادر' }
+  };
+  return map[mode] || map.reels;
+}
+function closingBeat(mode, b) {
+  const subj = refInfo().C || refInfo().P || (b.persons[0] && b.persons[0].short) || (b.props[0] && b.props[0].short) || 'the subject';
+  const map = {
+    reels: { en: `Quick payoff: hold on ${subj}'s final reaction for a beat`, ar: 'ختام سريع على ردة الفعل' },
+    cinematic: { en: `The moment resolves; the camera holds on ${subj}`, ar: 'ختام هادئ' },
+    ugc: { en: `${b.persons[0] ? cap(b.persons[0].short) : 'The creator'} gives a quick genuine reaction to the camera`, ar: 'ردة فعل عفوية للكاميرا' },
+    product: { en: `${cap(subj)} settles, ${hasLabel() ? 'label facing the camera' : 'turned toward the camera'}, in a clean hero frame`, ar: 'المنتج ثابت في الكادر الختامي' }
+  };
+  return map[mode] || map.reels;
+}
+
+function shotFor(mode, i, n, camera, base) {
+  const first = i === 0, last = i === n - 1 && n > 1;
+  const S = {
+    reels: first ? `Fast push-in, ${camera || 'dynamic handheld energy'}` : last ? 'Punchy close-up' : 'Medium shot with a quick whip reframe',
+    cinematic: first ? `Wide establishing shot, ${camera || 'smooth Steadicam tracking at eye level'}, 35mm lens` : last ? 'Slow pull-back to a wide frame' : 'Medium shot, 50mm lens, shallow depth of field',
+    ugc: first ? 'Handheld smartphone selfie at arm\'s length, front camera, slight natural shake' : last ? 'Handheld close-up, casual framing' : 'Same handheld framing, quick casual reframe',
+    product: first ? `Hero reveal, ${camera || 'slow dolly-in'}` : last ? (hasLabel() ? 'Slow orbit around the product, label centered' : 'Slow orbit around the product') : 'Macro close-up, 100mm macro lens, high-speed slow motion',
+    arabic: first ? `Slow ${camera || 'dolly-in'}` : last ? 'Locked-off centered frame' : 'Gentle drift across the surface'
+  };
+  let shot = base || S[mode] || S.reels;
+  if (state.tweaks.has('handheld') && mode !== 'ugc') shot = 'Handheld, ' + shot.charAt(0).toLowerCase() + shot.slice(1);
+  if (state.tweaks.has('close')) shot += ', tighter framing';
+  if (state.tweaks.has('macro') && !shot.includes('Macro')) shot += ', with extreme macro detail inserts';
+  return shot;
+}
+
+function arabicBeats(f) {
+  const method = $('a-method').value;
+  const anim = $('a-anim').value;
+  const bg = $('a-bg').value;
+  const font = $('a-font').value;
+  const phrase = f.phrase;
+  const withText = method === 'model';
+  const A = {
+    silk: withText ? `Dark silk cloth ripples and pulls back, revealing the Arabic phrase "${phrase}" in ${font}` : 'Dark silk cloth ripples and slowly pulls back, revealing a clean glowing center',
+    dust: withText ? `Golden stardust particles swirl and converge into the Arabic phrase "${phrase}" in ${font}` : 'Golden stardust particles swirl and converge toward the empty center of the frame',
+    light: withText ? `A thin beam of warm light traces each letter of the Arabic phrase "${phrase}" in ${font}` : 'A thin beam of warm light sweeps slowly across the surface'
+  };
+  const ar = { silk: 'انكشاف قماش الحرير', dust: 'تجمّع الذرات الذهبية', light: 'شعاع الضوء يمسح السطح' };
+  const endEn = method === 'post'
+    ? 'Everything settles into a still, centered hero frame with a clean empty center reserved for the title, gold dust floating gently'
+    : method === 'frame' ? 'Light catches the edges of the calligraphy as it settles into a still hero frame; every letter stays exactly as in the start frame'
+    : `The phrase "${phrase}" settles centered and razor-sharp, every letter connected and correctly shaped`;
+  return [
+    { ar: 'افتتاح على الخلفية', en: `The scene opens on ${bg}`, speeches: [] },
+    { ar: ar[anim], en: A[anim], speeches: [] },
+    { ar: method === 'post' ? 'كادر ختامي بمساحة فارغة للنص' : 'ثبات الكادر الختامي', en: endEn, speeches: [] }
+  ];
+}
+
+function planBeats(brief, mode, dur, f) {
+  const sc = mode === 'arabic' ? null : activeScenario();
+  let src;
+  if (mode === 'arabic') src = arabicBeats(f);
+  else if (sc && sc !== 'idea') src = scenarioBeats(sc);
+  else {
+    const R = refInfo();
+    const swap = (txt) => {
+      let t = txt;
+      if (R.C && brief.persons[0]) t = t.split(brief.persons[0].short).join(R.C).split(cap(brief.persons[0].short)).join(cap(R.C));
+      const prod = brief.props.find((p) => p.product);
+      if (R.P && prod) t = t.split(prod.short).join(R.P).split(cap(prod.short)).join(cap(R.P));
+      return t;
+    };
+    src = brief.beats.map((b) => ({ ...b, en: swap(b.en), speeches: b.speeches.map((s) => ({ ...s, speaker: swap(s.speaker) })) }));
+  }
+  const target = targetBeats(dur);
+  if (mode !== 'arabic') {
+    if (src.length === 0) src = [{ ...openingBeat(mode, brief), speeches: [] }, { ...closingBeat(mode, brief), speeches: [] }];
+    else if (src.length === 1) src = target >= 3 ? [{ ...openingBeat(mode, brief), speeches: [] }, src[0], { ...closingBeat(mode, brief), speeches: [] }] : [src[0], { ...closingBeat(mode, brief), speeches: [] }];
+    if (src.length > target) {
+      const merged = [];
+      const per = src.length / target;
+      for (let k = 0; k < target; k++) {
+        const part = src.slice(Math.round(k * per), Math.round((k + 1) * per));
+        merged.push({ shot: part[0].shot, ar: part.map((p) => p.ar).join(' ثم '), en: part.map((p, j) => j ? p.en.charAt(0).toLowerCase() + p.en.slice(1) : p.en).join(', then '), speeches: part.flatMap((p) => p.speeches) });
+      }
+      src = merged;
+    }
+  }
+  // product action override goes into the middle beat
+  if (mode === 'product' && $('p-action').value) {
+    const mid = Math.min(1, src.length - 1);
+    src[mid].en = src[mid].en + '; ' + $('p-action').value;
+  }
+  // extra dialogue field → last beat
+  const extra = $('f-dialogue').value.trim();
+  if (extra && mode !== 'arabic') src[src.length - 1].speeches.push({ speaker: $('f-speaker').value || 'the main character', line: extra });
+
+  const camera = $('f-camera').value === 'auto' ? '' : $('f-camera').value;
+  const n = src.length;
+  const step = dur / n;
+  return src.map((b, i) => {
+    let action = b.en;
+    if (state.tweaks.has('slow') && !/slow/i.test(action)) action += ', in smooth slow motion';
+    return {
+      ...b,
+      action,
+      start: i * step, end: (i + 1) * step,
+      shot: shotFor(mode, i, n, camera, b.shot ? b.shot.replace('{CAM}', camera || 'slow dolly-in') : '')
+    };
+  });
+}
+
+/* ---------------- Prompt composition ---------------- */
+const STYLE = {
+  reels: 'photorealistic, punchy social-first pacing, crisp detail',
+  cinematic: 'photorealistic cinematic film look, filmic color grade, subtle film grain',
+  ugc: 'authentic UGC smartphone footage, natural ungraded colors, casual and unpolished',
+  product: 'premium TV-commercial look, ultra-clean, photoreal materials and reflections',
+  arabic: 'elegant 3D motion design, photoreal materials, luxurious and calm'
+};
+const LIGHT = {
+  reels: 'bright high-contrast lighting',
+  cinematic: 'warm natural cinematic lighting with soft shadows',
+  ugc: 'natural available window light',
+  product: 'studio lighting with a soft gold rim light and specular highlights',
+  arabic: 'dark luxury lighting with a soft gold rim light'
+};
+const MOOD = { reels: 'energetic, scroll-stopping', cinematic: 'warm, respectful, cinematic', ugc: 'genuine, friendly, relatable', product: 'premium, desirable', arabic: 'elegant, celebratory' };
+
+function negativeList(mode, method) {
+  const base = ['extra fingers', 'warped hands', 'distorted faces', 'morphing wardrobe', 'subtitles', 'captions', 'overlay text', 'watermark'];
+  const add = {
+    reels: ['jittery motion', 'plastic skin', 'cartoon look'],
+    cinematic: ['jittery motion', 'plastic skin', 'cartoon look', 'oversaturated colors'],
+    ugc: ['studio lighting', 'cinematic color grading', 'stock-footage look', 'plastic skin'],
+    product: ['warped or redesigned packaging', 'misspelled or invented label text', 'duplicated products', 'unrealistic liquid physics'],
+    arabic: ['broken or disconnected Arabic letters', 'mirrored glyphs', 'pseudo-Arabic gibberish']
+  }[mode] || [];
+  const people = ['extra fingers', 'warped hands', 'distorted faces', 'morphing wardrobe'];
+  const list = mode === 'product' ? base.filter((x) => x !== 'morphing wardrobe').concat(add)
+    : mode === 'arabic' ? base.filter((x) => !people.includes(x)).concat(add) : base.concat(add);
+  if (mode === 'arabic' && method === 'post') list.push('any letters or text');
+  return list;
+}
+
+function compose() {
+  const b = state.brief;
+  if (!b) return null;
+  const mode = effectiveMode();
+  const eng = ENGINES[state.engine];
+  const dur = state.duration;
+  const aspect = state.aspect;
+  const tf = state.fieldsEn || {};
+  const method = $('a-method').value;
+
+  // phrase for Arabic mode
+  const quoted = (($('idea').value.match(/["«“]([^"»”]+)["»”]/) || [])[1]) || '';
+  const phrase = $('a-text').value.trim() || quoted || 'عيد مبارك';
+  const beats = planBeats(b, mode, dur, { phrase });
+
+  // References, characters & product
+  const R = refInfo();
+  const refCharEn = tf['ref-character'] || '';
+  const refProdEn = tf['ref-product'] || '';
+  const refStyleEn = tf['ref-style'] || '';
+  let charLine = '';
+  let productLine = '';
+  if (mode !== 'arabic') {
+    if (R.hasChar) charLine = `${R.C} — ${refCharEn || 'same face, hair, outfit and colors as the reference image'}` + (tf['f-bible'] ? `; ${tf['f-bible']}` : '');
+    else charLine = tf['f-bible'] || b.persons.map((p) => `${p.short} — ${p.full}`).join('; ');
+    const name = $('p-name').value.trim();
+    const cont = $('p-container').value;
+    const propFull = (b.props.find((p) => p.product) || {}).full || '';
+    const mat = tf['p-material'] ? `in ${tf['p-material']}` : '';
+    if (R.hasProd) productLine = [`${R.P} —`, name ? `"${name}"` : '', refProdEn || cont || propFull || 'exactly as in the reference image', mat].filter(Boolean).join(' ');
+    else if (mode === 'product') productLine = [name ? `"${name}"` : '', cont || propFull || 'the product', mat].filter(Boolean).join(' ');
+  }
+  let setting = mode === 'arabic' ? '' : (b.setting ? b.setting.full : '');
+  if (R.hasStyle && mode !== 'arabic') setting = R.styleImg ? `match the location, color palette and lighting of Image ${R.styleIdx}${refStyleEn ? ' (' + refStyleEn + ')' : ''}` : (refStyleEn || setting);
+  const bible = charLine;
+
+  let refLine = '';
+  if (mode === 'arabic' && method === 'frame') refLine = `Using the provided start frame that contains the Arabic calligraphy "${phrase}": keep every letter, dot and stroke exactly as in the image; animate only light, particles and camera.`;
+  else if (R.order.length) {
+    const keep = [];
+    if (R.charImg) keep.push(`keep the character identical to Image ${R.charIdx} (face, hair, outfit, colors)`);
+    if (R.prodImg) keep.push(`keep the product identical to Image ${R.prodIdx} (shape, colors, materials, logo, label text)`);
+    refLine = `Reference images in upload order: ${R.order.map((o) => `Image ${o.idx} = ${o.en}`).join('; ')}.` + (keep.length ? ` In every frame, ${keep.join(' and ')}.` : '');
+  }
+
+  // Style & lighting
+  const lightSel = $('f-lighting').value;
+  let lighting = lightSel === 'auto' ? LIGHT[mode] : lightSel;
+  const extras = [];
+  if (state.tweaks.has('night')) extras.push('night-time scene');
+  if (state.tweaks.has('golden')) extras.push('golden-hour sunlight');
+  if (state.tweaks.has('bokeh')) extras.push('shallow depth of field with creamy bokeh');
+  if (state.tweaks.has('haze')) extras.push('soft atmospheric haze with volumetric light rays');
+  const style = [STYLE[mode]].concat(extras).join(', ');
+  const orientation = aspect === '9:16' ? 'vertical' : aspect === '16:9' ? 'horizontal' : 'square';
+
+  // Audio
+  const dialect = DIALECTS[$('f-dialect').value];
+  const speechLine = (s) => `${cap(s.speaker)} says in ${dialect}: "${s.line}"`;
+  const sfx = b.sfx.slice(0, 4).concat(tf['f-sfx'] ? [tf['f-sfx']] : []);
+  let ambient = tf['f-ambient'] || b.ambient.join(', ');
+  if (!ambient) ambient = mode === 'ugc' ? 'natural room tone' : mode === 'product' ? 'clean studio room tone' : mode === 'arabic' ? 'soft airy whoosh as materials move' : 'subtle natural room tone';
+  const musicSel = $('f-music').value;
+  const music = musicSel === 'none' ? 'none, only natural on-set sound' : musicSel === 'soft' ? 'a soft, low score under the action' : (tf['f-music-custom'] || 'custom score');
+  const allSpeeches = beats.flatMap((bt) => bt.speeches);
+  const arabicSpeech = allSpeeches.length && $('f-dialect').value !== 'english';
+
+  const consistency = mode === 'arabic'
+    ? 'Consistency: smooth continuous motion, clean frame without captions or overlay text.'
+    : 'Consistency: ' + [charLine ? 'identical characters, wardrobe and lighting across all shots; anatomically natural hands' : '', productLine ? 'the product keeps the same shape, colors and label in every shot' : '', !charLine && !productLine ? 'consistent look and lighting across all shots' : ''].filter(Boolean).join('; ') + '; clean frame without captions or overlay text.';
+
+  const negative = negativeList(mode, method);
+  if (mode === 'product' && charLine && !negative.includes('morphing wardrobe')) negative.push('morphing wardrobe');
+  const tl = (bt) => `[${fmtT(bt.start)}–${fmtT(bt.end)}]`;
+  const secs = (bt) => `${Math.round(bt.start)}–${Math.round(bt.end)}s`;
+  const head = [refLine, charLine ? `Characters: ${charLine}` : '', productLine ? `Product: ${productLine}` : '', setting ? `Setting: ${setting}` : ''].filter(Boolean);
+
+  let main = '';
+  if (state.engine === 'omni' || state.engine === 'veo31') {
+    const lines = [`A ${dur}-second ${orientation} (${aspect}) video, one continuous scene.`, ...head, ''];
+    beats.forEach((bt) => {
+      lines.push(`${tl(bt)} ${bt.shot}. ${bt.action}.${bt.speeches.length ? ' ' + bt.speeches.map(speechLine).join(' ') : ''}`);
+    });
+    lines.push('');
+    if (sfx.length) lines.push(`SFX: ${sfx.join(', ')}.`);
+    lines.push(`Ambient: ${ambient}.`);
+    lines.push(`Music: ${music}.`);
+    lines.push('');
+    lines.push(`Style: ${style}. Lighting: ${lighting}. Mood: ${MOOD[mode]}.`);
+    lines.push(consistency);
+    main = lines.join('\n');
+  } else if (state.engine === 'kling3') {
+    const lines = [`${aspect}, ${dur}s, multi-shot sequence (${beats.length} shots).`, ...head, ''];
+    beats.forEach((bt, i) => {
+      const sp = !arabicSpeech && bt.speeches.length ? ' ' + bt.speeches.map((s) => `${cap(s.speaker)}: "${s.line}"`).join(' ') : '';
+      lines.push(`Shot ${i + 1} (${secs(bt)}) — Camera: ${bt.shot}. ${bt.action}.${sp}`);
+    });
+    lines.push('');
+    lines.push(`Audio: ${sfx.length ? 'SFX — ' + sfx.join(', ') + '; ' : ''}ambient — ${ambient}; music — ${music}.`);
+    lines.push(`Style: ${style}. Lighting: ${lighting}.`);
+    main = lines.join('\n');
+  } else {
+    const intro = [`${cap(style)}. ${setting ? cap(setting) + '.' : ''} ${charLine ? 'Characters: ' + charLine + '.' : ''} ${productLine ? 'Featuring ' + productLine + '.' : ''}`.replace(/\s{2,}/g, ' ').trim()];
+    if (refLine) intro.push(refLine);
+    const lines = [...intro, '', 'Cinematography:', `Camera shot: ${beats.map((bt) => bt.shot.charAt(0).toLowerCase() + bt.shot.slice(1)).join('; then ')}`, `Lighting: ${lighting}`, `Mood: ${MOOD[mode]}`, '', 'Actions:'];
+    beats.forEach((bt) => lines.push(`- (${secs(bt)}) ${bt.action}`));
+    if (allSpeeches.length) {
+      lines.push('', 'Dialogue:');
+      allSpeeches.forEach((s) => lines.push(`- ${cap(s.speaker)} (${dialect}): "${s.line}"`));
+    }
+    lines.push('', 'Background Sound:', `${sfx.length ? sfx.join(', ') + '; ' : ''}${ambient}. Music: ${music}.`);
+    lines.push('', `Format: ${aspect} ${orientation}, ${dur} seconds.`, consistency);
+    main = lines.join('\n');
+  }
+
+  // Shot-by-shot standalone prompts
+  const shots = beats.map((bt, i) => {
+    const per = Math.max(4, Math.round(bt.end - bt.start));
+    const l = [`A ${per}-second ${orientation} (${aspect}) shot.`, ...head,
+      `${bt.shot}. ${bt.action}.${bt.speeches.length && !(state.engine === 'kling3' && arabicSpeech) ? ' ' + bt.speeches.map(speechLine).join(' ') : ''}`,
+      `Audio: ${sfx.length ? 'SFX: ' + sfx.join(', ') + '. ' : ''}Ambient: ${ambient}. Music: ${music}.`,
+      `Style: ${style}. Lighting: ${lighting}.`, consistency];
+    return { title: `لقطة ${i + 1}`, time: `${fmtT(bt.start)}–${fmtT(bt.end)}`, ar: bt.ar, text: l.join('\n') };
+  });
+
+  // JSON
+  const jsonObj = {
+    engine: eng.label, mode, duration_s: dur, aspect_ratio: aspect,
+    reference: refLine || null,
+    characters: charLine || null, product: productLine || null, setting: setting || null,
+    shots: beats.map((bt) => ({ time: `${fmtT(bt.start)}-${fmtT(bt.end)}`, camera: bt.shot, action: bt.action, dialogue: bt.speeches.map((s) => ({ speaker: s.speaker, line: s.line, language: dialect })) })),
+    audio: { sfx, ambient, music },
+    style, lighting, negative
+  };
+  const json = JSON.stringify(jsonObj, null, 2);
+
+  // Warnings
+  const warnings = [...b.warnings];
+  if (arabicSpeech && !eng.arabicSpeech) warnings.push({ kind: 'eng', text: 'Kling لا يدعم مزامنة الشفاه بالعربي، فحذفنا الحوار من البرومبت. أضف الصوت العربي في المونتاج أو استخدم Veo 3.1.' });
+  if (arabicSpeech && eng.arabicSpeech) warnings.push({ kind: 'tip', text: 'النطق العربي يختلف جودته بين اللهجات: جرّب توليدين واختر الأفضل.' });
+  if (mode === 'arabic' && method === 'model') warnings.push({ kind: 'eng', text: 'نماذج الفيديو تشوّه الحروف العربية غالباً. للنتيجة المضمونة اختر «مساحة فارغة + النص في المونتاج».' });
+  if (mode === 'arabic' && method === 'post') warnings.push({ kind: 'tip', text: `ولّد الخلفية المتحركة ثم ضع «${phrase}» في CapCut أو After Effects فوق المساحة الفارغة.` });
+  if ((mode === 'product' || R.hasProd) && !R.prodImg) warnings.push({ kind: 'tip', text: 'أضف صورة المنتج في «المراجع» ليحافظ Omni على الشكل والشعار.' });
+  if (R.order.length && !(mode === 'arabic' && method === 'frame')) warnings.unshift({ kind: 'ref', text: `ارفع الصور في ${eng.label.replace('Gemini ', '')} بهذا الترتيب: ${R.order.map((o) => o.idx + ') ' + o.ar).join('  ')}` });
+
+  // Client pack
+  const hint = pasteHint();
+  const packLines = [
+    '=== حزمة تسليم — OmniFlow Studio ===',
+    `الفكرة: ${$('idea').value.trim() || '—'}`,
+    `النموذج: ${eng.label} (${eng.where}) | المدة: ${dur} ث | الأبعاد: ${aspect} | النوع: ${MODES[mode]}`,
+    '',
+    'تسلسل اللقطات:',
+    ...beats.map((bt, i) => `${i + 1}) \u2066${fmtT(bt.start)}–${fmtT(bt.end)}\u2069 — ${bt.ar}${bt.speeches.length ? ' — 🗣️ «' + bt.speeches.map((s) => s.line).join(' / ') + '»' : ''}`),
+    '',
+    `--- PROMPT (${hint.short}) ---`,
+    main,
+    '',
+    '--- NEGATIVE ---',
+    negative.join(', '),
+    '',
+    '--- ملاحظات الإنتاج ---',
+    ...(refLine ? ['• ارفع الصورة المرجعية قبل التوليد.'] : []),
+    '• ولّد 2–4 نسخ واختر الأفضل؛ للمقاطع الأطول استخدم Extend أو تبويب «لقطة بلقطة».',
+    ...warnings.filter((w) => w.kind !== 'tr').map((w) => '• ' + w.text)
+  ];
+
+  return { mode, beats, main, shots, negative, json, pack: packLines.join('\n'), warnings };
+}
+
+function pasteHint() {
+  const e = state.engine;
+  if (e === 'omni') return { short: 'Flow → Omni Flash', text: 'الصقه في Google Flow مع نموذج Omni Flash. بعد التوليد تقدر تعدّل أي جزء بالمحادثة بدون إعادة التوليد.' };
+  if (e === 'veo31') return { short: 'Flow → Veo 3.1', text: 'الصقه في Google Flow (Veo 3.1). المدة والأبعاد تُضبط من إعدادات Flow، والـ Negative في حقله إن وُجد.' };
+  if (e === 'kling3') return { short: 'Kling 3.0', text: 'الصقه في Kling 3.0 مع وضع Multi-shot، وضع الـ Negative في حقل Negative Prompt.' };
+  return { short: 'Sora 2', text: 'الصقه في Sora 2. لا يوجد حقل Negative، فالقيود مكتوبة داخل البرومبت بصيغة إيجابية.' };
+}
+
+/* ---------------- UI copy ---------------- */
+const MODE_INFO = {
+  auto: { icon: 'sparkles', d: 'يختار النوع المناسب من نصك' },
+  reels: { icon: 'smartphone', d: 'بداية تشد الانتباه وإيقاع سريع' },
+  cinematic: { icon: 'film', d: 'لقطات واسعة وإيقاع فيلم' },
+  ugc: { icon: 'user-round', d: 'تصوير جوال عفوي وكلام للكاميرا' },
+  product: { icon: 'package', d: 'إعلان منتج يحافظ على الشكل والشعار' },
+  arabic: { icon: 'pen-tool', d: 'خلفيات وموشن للخط العربي' }
+};
+const ENGINE_INFO = {
+  omni: 'Google Flow · تعدّل المقطع بالمحادثة بعد التوليد',
+  veo31: 'Google Flow · صوت وحوار · حتى 8 ثوانٍ',
+  kling3: 'حتى 15 ثانية ولقطات متعددة · بدون نطق عربي',
+  sora2: 'حتى 25 ثانية · صوت وحوار'
+};
+const ASPECT_AR = { '9:16': 'رأسي · ريلز وتيك توك', '16:9': 'عريض · يوتيوب', '1:1': 'مربع' };
+
+/* ---------------- Draft (per-browser convenience) ---------------- */
+function saveDraft() {
+  const d = { idea: $('idea').value, mode: state.mode, engine: state.engine, duration: state.duration, aspect: state.aspect, scenario: state.scenario, usage: state.usage, refs: state.refs };
+  try { localStorage.setItem('of_draft', JSON.stringify(d)); }
+  catch (e) {
+    const light = {};
+    Object.keys(state.refs).forEach((k) => { const x = state.refs[k]; light[k] = x ? { ...x, img: null } : null; });
+    try { localStorage.setItem('of_draft', JSON.stringify({ ...d, refs: light })); } catch (e2) {}
+  }
+}
+function restoreDraft() {
+  const d = store.get('of_draft', null);
+  if (!d || typeof d !== 'object') return false;
+  if (ENGINES[d.engine]) state.engine = d.engine;
+  if (MODES[d.mode]) state.mode = d.mode;
+  if (ENGINES[state.engine].durations.includes(d.duration)) state.duration = d.duration; else state.duration = ENGINES[state.engine].def;
+  if (ENGINES[state.engine].aspects.includes(d.aspect)) state.aspect = d.aspect;
+  $('idea').value = d.idea || '';
+  if (d.refs && typeof d.refs === 'object') ['character', 'product', 'style'].forEach((k) => { state.refs[k] = d.refs[k] || null; });
+  if (d.scenario) state.scenario = d.scenario;
+  if (d.usage) state.usage = d.usage;
+  return true;
+}
+
+/* ---------------- Rendering ---------------- */
+function ideaEmpty() { const R = refInfo(); return !$('idea').value.trim() && state.mode !== 'arabic' && !R.hasChar && !R.hasProd && !R.hasStyle; }
+
+function renderAll() {
+  renderChips();
+  renderRefTiles();
+  renderSeg();
+  const empty = ideaEmpty();
+  $('examples-wrap').classList.toggle('hidden', !!$('idea').value.trim() || refInfo().hasChar || refInfo().hasProd || refInfo().hasStyle);
+  $('btn-examples').classList.toggle('hidden', !$('idea').value.trim());
+  $('idea-hint').classList.toggle('hidden', !!$('idea').value.trim());
+  $('empty-result').classList.toggle('hidden', !empty);
+  $('result-body').classList.toggle('hidden', empty);
+  $('btn-more').classList.toggle('hidden', empty);
+  if (empty || !state.brief) { state.out = null; updateCopyBar(); return; }
+  const out = compose();
+  state.out = out;
+  if (!state.manualEdit) $('out-main').value = out.main;
+  $('paste-hint').textContent = pasteHint().text;
+  renderStoryboard(out);
+  renderShots(out.shots);
+  renderEdits();
+  renderSpeakerOptions();
+  updateCopyBar();
+}
+
+function chipBtn(attrs, icon, label, sub, cls) {
+  return `<button type="button" ${attrs} class="chipsel tap px-3 rounded-xl text-sm font-bold flex items-center gap-1.5 ${cls || ''}">
+    <i data-lucide="${icon}" class="w-4 h-4 opacity-80"></i><span>${label}</span>${sub ? `<span class="text-xs font-semibold opacity-60">${sub}</span>` : ''}
+  </button>`;
+}
+
+function renderChips() {
+  const m = effectiveMode();
+  const eng = ENGINES[state.engine];
+  const hasKey = !!store.get('of_key', '');
+  const idea = $('idea').value.trim();
+  const fresh = state.briefSource === 'gemini' && state.geminiIdea === idea;
+  let html = '';
+  html += chipBtn('data-sheet="mode"', MODE_INFO[m].icon, esc(MODES[m]), state.mode === 'auto' ? 'تلقائي' : '');
+  html += chipBtn('data-sheet="engine"', 'cpu', esc(eng.label.replace('Gemini ', '')), '');
+  html += chipBtn('data-sheet="format"', 'ratio', `${state.duration} ث · ${esc(state.aspect)}`, '');
+  const sc = activeScenario();
+  if (sc) html += chipBtn('data-sheet="scenario"', 'clapperboard', esc(SCENARIOS[sc].ar), state.scenario === 'auto' ? 'تلقائي' : '');
+  if (sc === 'use' || sc === 'ugc') html += chipBtn('data-sheet="usage"', 'hand', esc(activeUsage().ar), esc(CATEGORIES[productCategory()]));
+  if (hasKey) {
+    const label = state.geminiLoading ? 'Gemini يكتب…' : fresh ? 'تمت بـ Gemini ✓' : 'صياغة بـ Gemini';
+    html += `<button type="button" data-action="gemini" ${state.geminiLoading || !idea ? 'disabled' : ''} class="tap px-3 rounded-xl text-sm font-bold flex items-center gap-1.5 border border-blue-500/50 bg-blue-600/20 text-blue-100 hover:bg-blue-600/30 disabled:opacity-50"><i data-lucide="sparkles" class="w-4 h-4"></i>${label}</button>`;
+  } else {
+    html += `<button type="button" data-action="open-settings" class="tap px-3 rounded-xl text-sm font-bold flex items-center gap-1.5 text-blue-300 hover:text-blue-200"><i data-lucide="sparkles" class="w-4 h-4"></i>دقة أعلى</button>`;
+  }
+  $('chips').innerHTML = html;
+
+  $('product-fields').classList.toggle('hidden', m !== 'product');
+  $('arabic-fields').classList.toggle('hidden', m !== 'arabic');
+
+  // count customised details
+  let n = 0;
+  ['f-dialogue', 'f-sfx', 'f-ambient', 'f-bible', 'f-music-custom', 'p-name', 'p-material', 'a-text'].forEach((id) => { if ($(id).value.trim()) n++; });
+  [['f-camera', 'auto'], ['f-lighting', 'auto'], ['f-music', 'none'], ['f-dialect', 'najdi'], ['p-container', ''], ['p-action', '']].forEach(([id, def]) => { if ($(id).value !== def) n++; });
+  $('drawer-count').textContent = n ? `${n} معدّل` : '';
+  $('drawer-count').classList.toggle('hidden', !n);
+  initIcons();
+}
+
+function renderStoryboard(out) {
+  const b = state.brief;
+  $('story-meta').textContent = `${b.source === 'gemini' ? '✨ Gemini' : 'محرك محلي'} · ${out.beats.length} لقطات`;
+  $('story-summary').textContent = b.summaryAr || '';
+  $('story-summary').classList.toggle('hidden', !b.summaryAr);
+  $('storyboard').innerHTML = out.beats.map((bt, i) => `
+    <li class="flex gap-2.5">
+      <span class="w-6 h-6 rounded-full bg-emerald-500/15 text-emerald-300 text-xs font-black flex items-center justify-center flex-shrink-0 mt-0.5">${i + 1}</span>
+      <div class="min-w-0 flex-1">
+        <p class="text-sm text-slate-100 leading-snug">${esc(bt.ar)} <span class="mono text-xs text-slate-500 whitespace-nowrap" dir="ltr">${fmtT(bt.start)}–${fmtT(bt.end)}</span></p>
+        ${bt.speeches.length ? `<p class="text-xs text-amber-200 mt-0.5">🗣️ ${bt.speeches.map((s) => '«' + esc(s.line) + '»').join(' ')}</p>` : ''}
+      </div>
+    </li>`).join('');
+  const style = { ref: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-100', ip: 'border-rose-500/30 bg-rose-500/10 text-rose-200', eng: 'border-amber-500/30 bg-amber-500/10 text-amber-200', tr: 'border-amber-500/30 bg-amber-500/10 text-amber-200', tip: 'border-slate-700 bg-slate-800/40 text-slate-300' };
+  const icon = { ref: 'upload', ip: 'shield-alert', eng: 'alert-triangle', tr: 'wifi-off', tip: 'lightbulb' };
+  const order = { ref: -1, ip: 0, eng: 1, tr: 2, tip: 3 };
+  const ws = [...out.warnings].sort((a, b2) => order[a.kind] - order[b2.kind]);
+  $('notices').innerHTML = ws.map((w) => `<p class="text-xs leading-relaxed px-3 py-2 rounded-lg border flex gap-2 ${style[w.kind] || style.tip}"><i data-lucide="${icon[w.kind] || 'lightbulb'}" class="w-4 h-4 flex-shrink-0 mt-0.5"></i><span>${esc(w.text)}</span></p>`).join('');
+  initIcons();
+}
+
+function renderShots(shots) {
+  $('pane-shots').innerHTML = `<p class="text-xs text-slate-400">ولّد كل لقطة كمقطع مستقل، أو استخدمها مع Extend لمقطع أطول. وصف الشخصية مكرر فيها كلها لثبات الشكل.</p>` +
+    shots.map((s, i) => `
+      <div class="rounded-xl border border-slate-800 bg-[#060911]">
+        <div class="flex items-center gap-2 p-3">
+          <span class="w-7 h-7 rounded-full bg-blue-500/15 text-blue-300 text-xs font-black flex items-center justify-center flex-shrink-0">${i + 1}</span>
+          <div class="min-w-0 flex-1">
+            <p class="text-sm font-bold text-white truncate">${esc(s.ar)}</p>
+            <p class="mono text-xs text-slate-500 text-right" dir="ltr">${esc(s.time)}</p>
+          </div>
+          <button type="button" data-copyshot="${i}" class="tap px-3 rounded-lg bg-slate-800 hover:bg-blue-600 text-sm font-bold flex-shrink-0">نسخ</button>
+        </div>
+        <details class="border-t border-slate-800">
+          <summary class="tap px-3 flex items-center gap-1 text-xs text-slate-400 cursor-pointer list-none"><i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>عرض البرومبت</summary>
+          <pre class="mono text-xs text-slate-200 whitespace-pre-wrap leading-relaxed px-3 pb-3">${esc(s.text)}</pre>
+        </details>
+      </div>`).join('');
+  initIcons();
+}
+
+function renderSpeakerOptions() {
+  const sel = $('f-speaker');
+  const prev = sel.value;
+  const opts = (state.brief ? state.brief.persons : []).map((p) => ({ v: p.short, t: p.ar }));
+  opts.push({ v: 'the main character', t: 'الشخصية الرئيسية' }, { v: 'an off-screen narrator', t: 'راوي (صوت خارجي)' });
+  const html = opts.map((o) => `<option value="${esc(o.v)}">${esc(o.t)}</option>`).join('');
+  if (sel.dataset.html !== html) {
+    sel.innerHTML = html;
+    sel.dataset.html = html;
+    if (opts.some((o) => o.v === prev)) sel.value = prev;
+  }
+}
+
+function renderTweaks() {
+  $('tweaks').innerHTML = TWEAKS.map((t) => `<button type="button" data-tweak="${t.id}" aria-pressed="${state.tweaks.has(t.id)}" class="tw ${state.tweaks.has(t.id) ? 'on' : ''} px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap">${state.tweaks.has(t.id) ? '✓ ' : '+ '}${t.ar}</button>`).join('');
+}
+
+function renderSeg() {
+  $('seg-edits').classList.toggle('hidden', state.engine !== 'omni');
+  if (state.tab === 'edits' && state.engine !== 'omni') state.tab = 'main';
+  document.querySelectorAll('[data-seg]').forEach((b) => { const on = b.dataset.seg === state.tab; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); });
+  $('pane-main').classList.toggle('hidden', state.tab !== 'main');
+  $('pane-shots').classList.toggle('hidden', state.tab !== 'shots');
+  $('pane-edits').classList.toggle('hidden', state.tab !== 'edits');
+  updateCopyBar();
+}
+
+function updateCopyBar() {
+  if (!copyFlash) $('copy-label').textContent = state.tab === 'shots' ? 'نسخ كل اللقطات' : 'نسخ البرومبت';
+  const disabled = !state.out;
+  $('btn-copy').disabled = disabled;
+  $('btn-fav').disabled = disabled;
+}
+
+function activeText() {
+  const o = state.out;
+  if (!o) return '';
+  if (state.tab === 'shots') return o.shots.map((s, i) => `--- SHOT ${i + 1} (${s.time}) ---\n${s.text}`).join('\n\n');
+  return $('out-main').value;
+}
+
+/* ---------------- Sheets ---------------- */
+function openSheet(kind) {
+  state.sheet = kind;
+  renderSheet();
+  $('sheet').classList.remove('hidden');
+  const first = $('sheet-body').querySelector('button');
+  if (first) setTimeout(() => first.focus(), 30);
+}
+function closeSheet() { state.sheet = null; $('sheet').classList.add('hidden'); }
+
+function optRow(kind, val, label, desc, on, icon) {
+  return `<button type="button" data-pick="${kind}" data-val="${esc(val)}" aria-pressed="${on}" class="w-full tap flex items-center gap-3 px-3 py-2.5 rounded-xl border ${on ? 'border-emerald-500 bg-emerald-500/10' : 'border-slate-800 bg-slate-900/60 hover:bg-slate-800'} text-right">
+    ${icon ? `<i data-lucide="${icon}" class="w-5 h-5 ${on ? 'text-emerald-400' : 'text-slate-400'} flex-shrink-0"></i>` : ''}
+    <span class="flex-1 min-w-0"><span class="block text-sm font-bold ${on ? 'text-emerald-200' : 'text-white'}">${label}</span>${desc ? `<span class="block text-xs text-slate-400 mt-0.5">${esc(desc)}</span>` : ''}</span>
+    ${on ? '<i data-lucide="check" class="w-5 h-5 text-emerald-400 flex-shrink-0"></i>' : ''}
+  </button>`;
+}
+
+function renderSheet() {
+  const k = state.sheet;
+  let title = '', html = '';
+  if (k === 'mode') {
+    title = 'نوع الفيديو';
+    const detected = MODES[detectMode($('idea').value)];
+    html = Object.keys(MODES).map((m) => optRow('mode', m, esc(MODES[m]) + (m === 'auto' && $('idea').value.trim() ? ` <span class="text-xs font-semibold text-slate-400">← ${esc(detected)}</span>` : ''), MODE_INFO[m].d, state.mode === m, MODE_INFO[m].icon)).join('');
+  } else if (k === 'engine') {
+    title = 'نموذج الفيديو';
+    html = optRow('engine', 'omni', 'Omni Flash <span class="text-[11px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300">الافتراضي</span>', ENGINE_INFO.omni, state.engine === 'omni', 'cpu')
+      + '<p class="text-xs font-bold text-slate-500 pt-3">نماذج أخرى</p>'
+      + Object.entries(ENGINES).filter(([key]) => key !== 'omni').map(([key, e]) => optRow('engine', key, esc(e.label), ENGINE_INFO[key], state.engine === key, 'cpu')).join('');
+  } else if (k === 'format') {
+    title = 'المدة والأبعاد';
+    const eng = ENGINES[state.engine];
+    const seg = (kind, vals, cur, fmt) => `<div class="grid gap-2" style="grid-template-columns: repeat(${vals.length}, minmax(0,1fr));">${vals.map((v) => `<button type="button" data-pick="${kind}" data-val="${v}" aria-pressed="${v === cur}" class="tap rounded-xl border text-sm font-bold ${v === cur ? 'border-emerald-500 bg-emerald-500/15 text-emerald-200' : 'border-slate-700 bg-slate-900/60 text-slate-200'}">${fmt(v)}</button>`).join('')}</div>`;
+    html = `
+      <p class="text-xs font-bold text-slate-400">المدة <span class="font-semibold text-slate-500">(المتاح في ${esc(eng.label)})</span></p>
+      ${seg('duration', eng.durations, state.duration, (v) => v + ' ثوانٍ')}
+      <p class="text-xs font-bold text-slate-400 pt-2">الأبعاد</p>
+      ${seg('aspect', eng.aspects, state.aspect, (v) => `<span class="block">${v}</span><span class="block text-[11px] font-semibold opacity-70">${ASPECT_AR[v].split(' · ')[0]}</span>`)}
+      <button type="button" data-close="sheet" class="tap w-full mt-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-bold">تم</button>`;
+  } else if (k && k.startsWith('slot-')) {
+    const slot = k.slice(5);
+    title = SLOT_UI[slot].title;
+    html = slotSheetHtml(slot);
+  } else if (k === 'scenario') {
+    title = 'السيناريو';
+    const opts = scenarioOptions();
+    const autoSc = (() => { const keep = state.scenario; state.scenario = 'auto'; const v = activeScenario(); state.scenario = keep; return v; })();
+    html = optRow('scenario', 'auto', `تلقائي <span class="text-xs font-semibold text-slate-400">← ${esc(SCENARIOS[autoSc].ar)}</span>`, 'يختار حسب الفكرة والمراجع', state.scenario === 'auto', 'sparkles')
+      + opts.map((o) => optRow('scenario', o, esc(SCENARIOS[o].ar), SCENARIOS[o].d, state.scenario === o, SCENARIOS[o].icon)).join('');
+  } else if (k === 'usage') {
+    title = 'طريقة استخدام المنتج';
+    const cat = productCategory();
+    const list = USAGE[cat] || USAGE.other;
+    const cur = activeUsage().id;
+    html = `<p class="text-xs text-slate-400">نوع المنتج: <b class="text-slate-200">${esc(CATEGORIES[cat])}</b> — تقدر تغيّره من خانة «المنتج».</p>`
+      + list.map((u) => optRow('usage', u.id, esc(u.ar), '', cur === u.id, 'hand')).join('');
+  } else if (k === 'examples') {
+    title = 'أمثلة جاهزة';
+    html = '<p class="text-xs text-slate-400">سيُستبدل النص الحالي بالمثال.</p>' + EXAMPLES.map((e) => `<button type="button" data-example="${e.key}" class="w-full tap flex items-center gap-3 px-3 py-2.5 rounded-xl border border-slate-800 bg-slate-900/60 hover:bg-slate-800 text-right"><span class="text-lg">${e.icon}</span><span class="flex-1 min-w-0"><span class="block text-sm font-bold text-white">${esc(e.label)}</span><span class="block text-xs text-slate-400 truncate">${esc(e.idea)}</span></span></button>`).join('');
+  } else if (k === 'more') {
+    title = 'المزيد';
+    const o = state.out;
+    if (!o) { closeSheet(); return; }
+    const negDesc = ENGINES[state.engine].negField ? 'الصقها في حقل Negative Prompt' : 'هذا النموذج بدون حقل Negative؛ القيود مدمجة في البرومبت';
+    const row = (key, icon, t, desc, body, dl) => `
+      <details class="rounded-xl border border-slate-800 bg-slate-900/60">
+        <summary class="list-none cursor-pointer p-3 flex items-center gap-3">
+          <i data-lucide="${icon}" class="w-5 h-5 text-slate-400 flex-shrink-0"></i>
+          <span class="flex-1 min-w-0"><span class="block text-sm font-bold text-white">${t}</span><span class="block text-xs text-slate-400">${desc}</span></span>
+          <span class="flex gap-1.5 flex-shrink-0">
+            <button type="button" data-mcopy="${key}" class="tap px-3 rounded-lg bg-emerald-600/20 border border-emerald-500/40 text-emerald-200 text-xs font-bold">نسخ</button>
+            ${dl ? `<button type="button" data-export="${key}" aria-label="تحميل" class="tap w-11 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center"><i data-lucide="download" class="w-4 h-4"></i></button>` : ''}
+          </span>
+        </summary>
+        <pre class="mono text-xs text-slate-300 whitespace-pre-wrap leading-relaxed px-3 pb-3 max-h-64 overflow-auto">${esc(body)}</pre>
+      </details>`;
+    html = row('negative', 'shield-off', 'Negative Prompt', negDesc, o.negative.join(', '), false)
+      + row('pack', 'briefcase', 'حزمة العميل', 'ملخص عربي + البرومبتات + ملاحظات الإنتاج', o.pack, true)
+      + row('json', 'braces', 'JSON', 'نسخة منظمة للأرشفة والأدوات', o.json, true)
+      + `<p class="text-xs text-slate-500 pt-1">اضغط على أي عنصر لمعاينته.</p>`;
+  }
+  $('sheet-title').textContent = title;
+  $('sheet-body').innerHTML = html;
+  initIcons();
+}
+
+function pick(kind, val) {
+  if (kind === 'mode') {
+    state.mode = val; state.modeFromExample = false;
+    closeSheet();
+  } else if (kind === 'engine') {
+    state.engine = val;
+    const eng = ENGINES[val];
+    if (!eng.durations.includes(state.duration)) state.duration = eng.def;
+    if (!eng.aspects.includes(state.aspect)) state.aspect = eng.aspects[0];
+    closeSheet();
+  } else if (kind === 'scenario') {
+    state.scenario = val; closeSheet();
+  } else if (kind === 'usage') {
+    state.usage = val; closeSheet();
+  } else if (kind === 'duration') {
+    state.duration = +val; renderSheet();
+  } else if (kind === 'aspect') {
+    state.aspect = val; renderSheet();
+  }
+  resetManual();
+  saveDraft();
+  renderAll();
+}
+
+/* ---------------- Build orchestration ---------------- */
+let ideaTimer = null, fieldTimer = null;
+
+async function rebuildBrief() {
+  const id = ++state.buildId;
+  const idea = $('idea').value.trim();
+  const fieldsEn = await translateFields();
+  if (state.briefSource === 'gemini' && state.geminiIdea === idea && state.geminiBrief) {
+    if (id !== state.buildId) return;
+    state.brief = state.geminiBrief;
+  } else {
+    const brief = await buildLocalBrief(idea);
+    if (id !== state.buildId) return;
+    state.brief = brief;
+    state.briefSource = 'local';
+  }
+  state.fieldsEn = fieldsEn;
+  renderAll();
+}
+
+async function runGemini() {
+  const idea = $('idea').value.trim();
+  if (!idea) return;
+  state.geminiLoading = true;
+  renderChips();
+  try {
+    const brief = await buildGeminiBrief(idea);
+    state.geminiBrief = brief;
+    state.geminiIdea = idea;
+    state.briefSource = 'gemini';
+    resetManual();
+    state.geminiLoading = false;
+    await rebuildBrief();
+    toast('تمت الصياغة بـ Gemini', 'راجع التسلسل في «النتيجة».');
+  } catch (e) {
+    state.geminiLoading = false;
+    renderChips();
+    toast('تعذر الاتصال بـ Gemini', String(e.message || e).slice(0, 140), true);
+  }
+}
+
+function resetManual() {
+  state.manualEdit = false;
+  $('manual-bar').classList.add('hidden');
+}
+
+/* ---------------- Copy, toast, history ---------------- */
+let toastTimer = null, copyFlash = null;
+function toast(title, desc, isErr) {
+  const el = $('toast');
+  $('toast-title').textContent = title;
+  $('toast-desc').textContent = desc || '';
+  el.classList.toggle('border-rose-500/60', !!isErr);
+  el.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-4');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.add('opacity-0', 'pointer-events-none', 'translate-y-4'), 2600);
+}
+
+async function copyText(text, desc) {
+  try {
+    if (navigator.clipboard && window.isSecureContext) await navigator.clipboard.writeText(text);
+    else throw new Error('fallback');
+  } catch (e) {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (err) { ok = false; }
+    ta.remove();
+    if (!ok) { toast('انسخ يدوياً', 'المتصفح منع النسخ التلقائي.', true); return false; }
+  }
+  toast('تم النسخ', desc || ('الصقه في ' + pasteHint().short));
+  return true;
+}
+
+function flashCopyButton() {
+  clearTimeout(copyFlash);
+  $('copy-label').textContent = '✓ تم النسخ';
+  copyFlash = setTimeout(() => { copyFlash = null; updateCopyBar(); }, 1600);
+}
+
+function historyAll() { return store.get('of_history', []); }
+function saveHistory(fav) {
+  const o = state.out;
+  if (!o) return;
+  const prompt = $('out-main').value;
+  const list = historyAll();
+  const existing = list.find((h) => h.prompt === prompt);
+  if (existing) { if (fav) existing.fav = true; existing.time = Date.now(); }
+  else list.unshift({ id: Date.now().toString(36), time: Date.now(), fav: !!fav, idea: $('idea').value.trim(), mode: state.mode, engine: state.engine, duration: state.duration, aspect: state.aspect, prompt, pack: o.pack });
+  const favs = list.filter((h) => h.fav);
+  const rest = list.filter((h) => !h.fav).sort((a, b) => b.time - a.time).slice(0, 30);
+  store.set('of_history', favs.concat(rest).sort((a, b) => b.time - a.time));
+}
+
+function renderHistory() {
+  document.querySelectorAll('[data-hfilter]').forEach((b) => b.classList.toggle('on', b.dataset.hfilter === state.hfilter));
+  const list = historyAll().filter((h) => state.hfilter === 'all' || h.fav);
+  if (!list.length) {
+    $('history-list').innerHTML = `<p class="text-sm text-slate-400 text-center py-10">${state.hfilter === 'fav' ? 'اضغط ⭐ بجانب زر النسخ لحفظ برومبت هنا.' : 'كل برومبت تنسخه يُحفظ هنا تلقائياً.'}</p>`;
+    return;
+  }
+  $('history-list').innerHTML = list.map((h) => `
+    <div class="rounded-xl border border-slate-800 bg-slate-900/60 p-3 space-y-2">
+      <p class="text-sm text-slate-100 line-clamp-2">${esc(h.idea || '—')}</p>
+      <p class="text-xs text-slate-400">${esc((ENGINES[h.engine] || {}).label || h.engine)} · ${h.duration} ث · ${esc(h.aspect)} · ${new Date(h.time).toLocaleDateString('ar-SA-u-ca-gregory-nu-latn', { month: 'short', day: 'numeric' })}</p>
+      <div class="flex gap-1.5">
+        <button type="button" data-hload="${h.id}" class="tap flex-1 rounded-lg bg-emerald-600/20 border border-emerald-500/40 text-emerald-200 text-sm font-bold">فتح</button>
+        <button type="button" data-hcopy="${h.id}" class="tap px-3 rounded-lg bg-slate-800 text-sm font-bold">نسخ</button>
+        <button type="button" data-hfav="${h.id}" aria-label="مفضلة" class="tap w-11 rounded-lg bg-slate-800 text-base ${h.fav ? 'text-amber-300' : 'text-slate-400'}">${h.fav ? '★' : '☆'}</button>
+        <button type="button" data-hdel="${h.id}" aria-label="حذف" class="tap w-11 rounded-lg bg-slate-800 text-rose-300 flex items-center justify-center"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+      </div>
+    </div>`).join('');
+  initIcons();
+}
+
+/* ---------------- Actions ---------------- */
+function onIdeaChanged() {
+  if (state.modeFromExample) { state.mode = 'auto'; state.modeFromExample = false; }
+  resetManual();
+  saveDraft();
+  $('examples-wrap').classList.toggle('hidden', !!$('idea').value.trim() || refInfo().hasChar || refInfo().hasProd || refInfo().hasStyle);
+  $('btn-examples').classList.toggle('hidden', !$('idea').value.trim());
+  $('idea-hint').classList.toggle('hidden', !!$('idea').value.trim());
+  clearTimeout(ideaTimer);
+  ideaTimer = setTimeout(rebuildBrief, 450);
+}
+
+function loadExample(ex) {
+  state.mode = ex.mode;
+  state.modeFromExample = true;
+  $('idea').value = ex.idea;
+  $('a-text').value = ex.arabicText || '';
+  state.scenario = 'auto';
+  resetManual();
+  saveDraft();
+  rebuildBrief();
+}
+
+function resetDetails() {
+  ['f-dialogue', 'f-sfx', 'f-ambient', 'f-music-custom', 'f-bible', 'p-name', 'p-material', 'a-text'].forEach((id) => { $(id).value = ''; });
+  ['f-camera', 'f-lighting'].forEach((id) => { $(id).value = 'auto'; });
+  ['p-container', 'p-action'].forEach((id) => { $(id).value = ''; });
+  $('f-music').value = 'none';
+  $('f-dialect').value = 'najdi';
+  $('a-method').selectedIndex = 0;
+  $('music-custom-wrap').classList.add('hidden');
+}
+
+function clearAll() {
+  $('idea').value = '';
+  resetDetails();
+  state.mode = 'auto';
+  state.modeFromExample = false;
+  state.tweaks.clear();
+  state.refs = { character: null, product: null, style: null };
+  state.scenario = 'auto';
+  state.usage = 'auto';
+  state.briefSource = 'local';
+  state.geminiIdea = null;
+  resetManual();
+  renderTweaks();
+  saveDraft();
+  rebuildBrief();
+  $('idea').focus();
+}
+
+function download(name, text, type) {
+  const blob = new Blob([text], { type });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+/* Voice dictation (Arabic) */
+let recognizer = null;
+function setupMic() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) return;
+  const btn = $('btn-mic');
+  btn.classList.remove('hidden');
+  btn.addEventListener('click', () => {
+    if (recognizer) { recognizer.stop(); return; }
+    try {
+      recognizer = new SR();
+      recognizer.lang = 'ar-SA';
+      recognizer.interimResults = true;
+      recognizer.continuous = false;
+      const base = $('idea').value.trim();
+      recognizer.onresult = (e) => {
+        let txt = '';
+        for (let i = 0; i < e.results.length; i++) txt += e.results[i][0].transcript;
+        $('idea').value = (base ? base + ' ' : '') + txt;
+        onIdeaChanged();
+      };
+      recognizer.onerror = (e) => {
+        toast('تعذر تشغيل الميكروفون', e.error === 'not-allowed' ? 'اسمح للمتصفح باستخدام الميكروفون ثم حاول مرة أخرى.' : 'حاول مرة أخرى أو اكتب الفكرة.', true);
+      };
+      recognizer.onend = () => {
+        recognizer = null;
+        btn.classList.remove('rec');
+        $('mic-label').textContent = 'تحدّث';
+      };
+      recognizer.start();
+      btn.classList.add('rec');
+      $('mic-label').textContent = 'إيقاف';
+    } catch (err) {
+      recognizer = null;
+      toast('الإملاء الصوتي غير متاح هنا', 'اكتب الفكرة بدلاً من ذلك.', true);
+    }
+  });
+}
+
+/* ---------------- References, scenarios & product usage ---------------- */
+Object.assign(state, { refs: { character: null, product: null, style: null }, scenario: 'auto', usage: 'auto', uploadSlot: null, edits: [] });
+
+const SLOT_UI = {
+  character: { title: 'الشخصية / المودل', short: 'الشخصية', icon: 'user-round', ph: 'مثال: شابة بشعر أسود مرفوع وفستان ساتان أخضر' },
+  product: { title: 'المنتج', short: 'المنتج', icon: 'package', ph: 'مثال: عقد ألماس بحجر زمرد مستطيل وإطار مزدوج' },
+  style: { title: 'المكان / الستايل', short: 'المكان', icon: 'image', ph: 'مثال: قماش مخمل عنابي وإضاءة دافئة' }
+};
+const SLOT_EN = { character: { en: 'the character', ar: 'الشخصية' }, product: { en: 'the product', ar: 'المنتج' }, style: { en: 'the style and location reference', ar: 'المكان' } };
+
+const CATEGORIES = {
+  perfume: 'عطر', deodorant: 'مزيل عرق', food: 'أكل وحلويات', drink: 'مشروب', jewelry: 'مجوهرات',
+  skincare: 'عناية بالبشرة', apparel: 'ملابس وأزياء', electronics: 'إلكترونيات', other: 'منتج عام'
+};
+const CAT_RE = {
+  deodorant: /مزيل\s*(?:ال)?عرق|deodorant|antiperspirant|بخاخ\s*جسم|body\s*spray/,
+  perfume: /عطر|برفان|بخور|perfume|fragrance|cologne|parfum/,
+  food: /كيك|كيكه|كعك|حلي|حلا|حلويات|شوكولا|بسكويت|برجر|بيتزا|دونات|كوكيز|تمر|معمول|cake|dessert|chocolate|cookie|burger|pizza|donut|pastry/,
+  drink: /مشروب|عصير|قهو|شاي|كانز|ماء|مياه|drink|juice|coffee|tea|soda|beverage|energy/,
+  jewelry: /عقد|خاتم|حلق|سوار|مجوهرات|ذهب|الماس|ماس|زمرد|necklace|ring|jewel|earring|bracelet|diamond|emerald|gold/,
+  skincare: /سيروم|كريم|مرطب|واقي|غسول|تونر|serum|cream|skincare|lotion|moisturi|sunscreen|cleanser/,
+  apparel: /ثوب|فستان|عباي|قميص|حذاء|سنيكرز|شنط|جاكيت|شماغ|dress|abaya|shirt|sneaker|shoe|bag|jacket|hoodie/,
+  electronics: /جوال|سماع|ساع[ةه]\s*ذكي|لابتوب|كاميرا|تابلت|phone|earbuds|headphone|laptop|smartwatch|tablet|speaker|gadget/
+};
+const USAGE = {
+  perfume: [
+    { id: 'neck', ar: 'يبخ على الرقبة', en: '{C} lifts {P} and sprays it lightly on the neck, the fine mist catching the light' },
+    { id: 'wrist', ar: 'يبخ على المعصم ويشمّه', en: '{C} sprays {P} on the wrist and brings it close to smell, eyes closing with pleasure' },
+    { id: 'air', ar: 'يبخ في الهواء ويمشي خلاله', en: '{C} sprays {P} into the air and walks slowly through the falling mist' }
+  ],
+  deodorant: [
+    { id: 'spray', ar: 'بخة سريعة (لقطة لائقة)', en: '{C} gives a quick, tasteful spray of {P}, framed from the shoulders up' },
+    { id: 'gym', ar: 'بعد التمرين بثقة', en: 'After a workout, {C} sprays {P} and smiles with fresh confidence' }
+  ],
+  food: [
+    { id: 'bite', ar: 'يأخذ لقمة بالشوكة', en: '{C} cuts a piece of {P} with a fork and takes a slow, satisfying bite' },
+    { id: 'macro-bite', ar: 'لقطة للقوام ثم لقمة', en: 'Macro close-up of the texture of {P}, then {C} takes a bite and reacts with delight' },
+    { id: 'serve', ar: 'يقدّمه لضيف', en: '{C} serves {P} on a plate to a guest with a warm smile' }
+  ],
+  drink: [
+    { id: 'sip', ar: 'يفتح ويشرب', en: '{C} opens {P} with a crisp sound and takes a refreshing sip' },
+    { id: 'pour', ar: 'يسكب في كأس ثلج', en: '{C} pours {P} into a glass full of ice, bubbles rising' }
+  ],
+  jewelry: [
+    { id: 'wear', ar: 'تلبسه أمام المرآة', en: '{C} fastens {P} in front of a mirror, the stones catching the light' },
+    { id: 'touch', ar: 'تلمسه بأطراف الأصابع', en: '{C} gently touches {P} with the fingertips while looking at the camera' },
+    { id: 'reveal', ar: 'ماكرو للأحجار ثم تظهر لابسته', en: 'Extreme macro across the stones of {P}, then reveal {C} wearing it' }
+  ],
+  skincare: [
+    { id: 'apply', ar: 'يضع قطرة على البشرة', en: '{C} applies a drop of {P} to the cheek and gently pats it in' },
+    { id: 'show', ar: 'يعرض العبوة بجانب الوجه', en: '{C} holds {P} next to the face, label toward the camera, smiling' }
+  ],
+  apparel: [
+    { id: 'turn', ar: 'يلبسه ويلف أمام الكاميرا', en: '{C} wears {P} and turns slowly in front of the camera' },
+    { id: 'walk', ar: 'يمشي بثقة', en: '{C} walks confidently toward the camera wearing {P}' }
+  ],
+  electronics: [
+    { id: 'use', ar: 'يستخدمه فعلياً', en: '{C} uses {P} and reacts naturally to it' },
+    { id: 'unbox', ar: 'يفتح العلبة', en: '{C} unboxes {P}, lifting it out of the box' }
+  ],
+  other: [
+    { id: 'use', ar: 'يستخدم المنتج', en: '{C} uses {P} naturally' },
+    { id: 'hold', ar: 'يمسكه ويعرضه', en: '{C} holds {P} up toward the camera' }
+  ]
+};
+const HERO_ACTION = {
+  perfume: 'A fine mist bursts from {P} in slow motion',
+  deodorant: 'A crisp spray from {P} catches the light',
+  food: 'Macro close-up of the texture of {P} as a piece is lifted away',
+  drink: 'Condensation drips down {P} as bubbles rise',
+  jewelry: 'Light sparkles across the stones of {P} as it turns slowly',
+  skincare: 'A glossy droplet falls from {P} in slow motion',
+  apparel: 'The fabric of {P} ripples softly in a gentle breeze',
+  electronics: '{P} lights up as it turns on',
+  other: 'The camera glides around {P}, revealing its details'
+};
+const SCENARIOS = {
+  idea: { ar: 'من فكرتي', d: 'يقسّم النص الذي كتبته', icon: 'text' },
+  use: { ar: 'الشخصية تستخدم المنتج', d: 'ظهور ← استخدام ← لقطة ختامية للمنتج', icon: 'hand' },
+  macro: { ar: 'ماكرو ثم ظهور الشخصية', d: 'تفاصيل المنتج عن قرب ثم تنكشف الشخصية', icon: 'zoom-in' },
+  ugc: { ar: 'تمسكه وتتكلم (UGC)', d: 'سيلفي بالجوال وتجربة شخصية', icon: 'smartphone' },
+  hero: { ar: 'المنتج وحده', d: 'عرض المنتج بدون شخصية', icon: 'package' }
+};
+
+function hasLabel() { return !['jewelry', 'food', 'apparel'].includes(productCategory()); }
+function refFilled(slot) { const x = state.refs[slot]; return !!(x && (x.img || (x.desc || '').trim())); }
+
+function refInfo() {
+  const order = [];
+  let i = 0;
+  ['character', 'product', 'style'].forEach((sl) => { const x = state.refs[sl]; if (x && x.img) order.push({ slot: sl, idx: ++i, en: SLOT_EN[sl].en, ar: SLOT_EN[sl].ar }); });
+  const idxOf = (sl) => (order.find((o) => o.slot === sl) || {}).idx;
+  const img = (sl) => !!(state.refs[sl] && state.refs[sl].img);
+  return {
+    order,
+    hasChar: refFilled('character'), hasProd: refFilled('product'), hasStyle: refFilled('style'),
+    charImg: img('character'), prodImg: img('product'), styleImg: img('style'),
+    charIdx: idxOf('character'), prodIdx: idxOf('product'), styleIdx: idxOf('style'),
+    C: img('character') ? `the character from Image ${idxOf('character')}` : refFilled('character') ? 'the character' : null,
+    P: img('product') ? `the product from Image ${idxOf('product')}` : refFilled('product') ? 'the product' : null
+  };
+}
+
+function detectCategory(text) {
+  const t = normalize(text).toLowerCase();
+  for (const [k, re] of Object.entries(CAT_RE)) if (re.test(t)) return k;
+  return 'other';
+}
+function productCategory() {
+  const p = state.refs.product;
+  if (p && p.category && CATEGORIES[p.category]) return p.category;
+  return detectCategory([(p && p.desc) || '', (p && p.descEn) || '', $('p-name').value, $('idea').value].join(' '));
+}
+function activeUsage() {
+  const list = USAGE[productCategory()] || USAGE.other;
+  return list.find((u) => u.id === state.usage) || list[0];
+}
+function scenarioOptions() {
+  const R = refInfo();
+  if (!R.hasProd) return [];
+  const opts = [];
+  if ($('idea').value.trim()) opts.push('idea');
+  if (R.hasChar) opts.push('use', 'macro', 'ugc');
+  opts.push('hero');
+  return opts;
+}
+function activeScenario() {
+  const opts = scenarioOptions();
+  if (!opts.length) return null;
+  if (state.scenario !== 'auto' && opts.includes(state.scenario)) return state.scenario;
+  if (opts[0] === 'idea') return 'idea';
+  return opts.includes('use') ? 'use' : 'hero';
+}
+function scenarioBeats(sc) {
+  const R = refInfo();
+  const C = R.C || 'a stylish model';
+  const P = R.P || 'the product';
+  const fill = (t) => t.replace(/\{C\}/g, C).replace(/\{P\}/g, P);
+  const u = activeUsage();
+  const act = cap(fill(u.en));
+  const hero = cap(fill(HERO_ACTION[productCategory()] || HERO_ACTION.other));
+  const facing = hasLabel() ? 'label facing the camera' : 'turned toward the camera';
+  const S = {
+    use: [
+      { ar: 'الشخصية تظهر ومعها المنتج', shot: 'Medium shot, {CAM}', en: `${cap(C)} appears, holding ${P} naturally` },
+      { ar: u.ar, shot: 'Close-up on the hands and the product, shallow depth of field', en: act },
+      { ar: 'لقطة ختامية للمنتج بجانب الشخصية', shot: 'Hero close-up, product in sharp focus', en: `${cap(P)} in a clean hero close-up next to ${C}, ${facing}` }
+    ],
+    macro: [
+      { ar: 'ماكرو لتفاصيل المنتج', shot: 'Extreme macro, 100mm macro lens', en: `Extreme macro across the details and materials of ${P}, light gliding over its surface` },
+      { ar: 'الكاميرا تبتعد وتنكشف الشخصية', shot: 'Slow continuous pull-back from macro to a medium shot', en: `The camera pulls back to reveal ${C} with ${P}` },
+      { ar: 'نظرة واثقة للكاميرا', shot: 'Medium close-up at eye level', en: `${cap(C)} looks into the camera with quiet confidence, ${P} in sharp focus` }
+    ],
+    ugc: [
+      { ar: 'سيلفي والحديث عن المنتج', shot: 'Handheld smartphone selfie at arm\'s length, front camera, slight natural shake', en: `${cap(C)} holds the phone at arm's length and shows ${P} to the camera while talking` },
+      { ar: u.ar, shot: 'Same handheld framing, quick casual reframe', en: act },
+      { ar: 'ردة فعل عفوية', shot: 'Handheld close-up, casual framing', en: `${cap(C)} gives a genuine reaction to the camera, holding ${P} next to the face` }
+    ],
+    hero: [
+      { ar: 'ظهور المنتج', en: `${cap(P)} rises into a centered hero frame` },
+      { ar: 'تفاصيل وحركة', en: hero },
+      { ar: 'كادر ختامي', en: `${cap(P)} settles, ${facing}, in a clean hero frame` }
+    ]
+  };
+  return (S[sc] || S.use).map((x) => ({ ...x, speeches: [] }));
+}
+
+/* ---------- Reference tiles & sheet ---------- */
+function renderRefTiles() {
+  const R = refInfo();
+  $('ref-tiles').innerHTML = ['character', 'product', 'style'].map((sl) => {
+    const x = state.refs[sl];
+    const filled = refFilled(sl);
+    const idx = R[{ character: 'charIdx', product: 'prodIdx', style: 'styleIdx' }[sl]];
+    return `<button type="button" data-sheet="slot-${sl}" class="relative tap rounded-xl border ${filled ? 'border-emerald-500/60 bg-emerald-500/10' : 'border-dashed border-slate-600 bg-[#060911] hover:bg-slate-900'} p-2 flex flex-col items-center justify-center gap-1 min-h-[96px]">
+      ${x && x.thumb ? `<img src="${x.thumb}" alt="" class="w-12 h-12 rounded-lg object-cover">` : `<i data-lucide="${SLOT_UI[sl].icon}" class="w-6 h-6 ${filled ? 'text-emerald-300' : 'text-slate-500'}"></i>`}
+      <span class="text-xs font-bold ${filled ? 'text-emerald-100' : 'text-slate-300'}">${SLOT_UI[sl].short}</span>
+      <span class="text-[11px] ${filled ? 'text-emerald-300' : 'text-slate-500'}">${idx ? 'صورة ' + idx : filled ? 'وصف ✓' : '+ إضافة'}</span>
+    </button>`;
+  }).join('');
+  initIcons();
+}
+
+function slotSheetHtml(slot) {
+  const x = state.refs[slot] || {};
+  const T = SLOT_UI[slot];
+  const hasKey = !!store.get('of_key', '');
+  const lib = store.get('of_lib', []).filter((l) => l.slot === slot);
+  const imgArea = x.img
+    ? `<div class="flex items-center gap-3">
+         <img src="${x.thumb || x.img}" alt="" class="w-20 h-20 rounded-xl object-cover border border-slate-700">
+         <div class="flex flex-col gap-1.5 flex-1">
+           <button type="button" data-ref="upload" data-slot="${slot}" class="tap rounded-lg bg-slate-800 border border-slate-700 text-sm font-bold">تغيير الصورة</button>
+           <button type="button" data-ref="clear-img" data-slot="${slot}" class="tap rounded-lg text-rose-300 text-sm font-bold">إزالة الصورة</button>
+         </div>
+       </div>`
+    : `<button type="button" data-ref="upload" data-slot="${slot}" class="w-full tap rounded-xl border-2 border-dashed border-slate-600 hover:border-emerald-500 bg-[#060911] py-5 flex flex-col items-center gap-1.5">
+         <i data-lucide="image-plus" class="w-7 h-7 text-emerald-400"></i>
+         <span class="text-sm font-bold">ارفع صورة (اختياري)</span>
+         <span class="text-xs text-slate-500">نفس الصورة التي سترفعها في Omni</span>
+       </button>`;
+  const catSel = slot === 'product' ? `
+    <div>
+      <label class="lbl" for="ref-cat">نوع المنتج</label>
+      <select id="ref-cat" data-refcat="product" class="field tap">
+        <option value="">تلقائي ← ${esc(CATEGORIES[detectCategory([(x.desc || ''), (x.descEn || ''), $('idea').value].join(' '))])}</option>
+        ${Object.entries(CATEGORIES).map(([k, v]) => `<option value="${k}" ${x.category === k ? 'selected' : ''}>${v}</option>`).join('')}
+      </select>
+    </div>` : '';
+  const describeBtn = x.img
+    ? (hasKey
+      ? `<button type="button" data-ref="describe" data-slot="${slot}" class="tap w-full rounded-xl border border-blue-500/50 bg-blue-600/20 text-blue-100 text-sm font-bold flex items-center justify-center gap-2"><i data-lucide="sparkles" class="w-4 h-4"></i>${state.describing === slot ? 'Gemini يصف الصورة…' : 'صِف من الصورة بـ Gemini'}</button>`
+      : `<button type="button" data-action="open-settings" class="text-xs text-blue-300 hover:underline">فعّل Gemini ليكتب الوصف من الصورة تلقائياً</button>`)
+    : '';
+  const libHtml = `
+    <div class="pt-3 border-t border-slate-800 space-y-2">
+      <p class="text-xs font-bold text-slate-400">محفوظاتي</p>
+      ${lib.length ? `<div class="grid grid-cols-3 gap-2">${lib.map((l) => `
+        <div class="relative">
+          <button type="button" data-lib-load="${l.id}" class="w-full tap rounded-xl border border-slate-700 bg-slate-900/60 hover:bg-slate-800 p-1.5 flex flex-col items-center gap-1">
+            ${l.thumb ? `<img src="${l.thumb}" alt="" class="w-12 h-12 rounded-lg object-cover">` : `<i data-lucide="${T.icon}" class="w-6 h-6 text-slate-500 my-3"></i>`}
+            <span class="text-[11px] font-bold truncate w-full text-center">${esc(l.name)}</span>
+          </button>
+          <button type="button" data-lib-del="${l.id}" aria-label="حذف" class="absolute -top-1.5 -left-1.5 w-6 h-6 rounded-full bg-slate-800 border border-slate-600 text-rose-300 text-xs">×</button>
+        </div>`).join('')}</div>` : `<p class="text-xs text-slate-500">احفظ ${slot === 'product' ? 'منتجاتك' : slot === 'character' ? 'شخصياتك' : 'ستايلاتك'} المتكررة لتستدعيها بضغطة.</p>`}
+      ${refFilled(slot) ? `<div class="flex gap-2">
+        <input id="lib-name" class="field tap flex-1" placeholder="اسم للحفظ" value="${esc(x.name || '')}">
+        <button type="button" data-ref="save" data-slot="${slot}" class="tap px-4 rounded-xl bg-slate-800 border border-slate-700 text-sm font-bold">حفظ</button>
+      </div>` : ''}
+    </div>`;
+  return `
+    ${imgArea}
+    <div>
+      <label class="lbl" for="ref-desc">الوصف (اختياري)</label>
+      <textarea id="ref-desc" data-refdesc="${slot}" rows="3" class="field" placeholder="${esc(T.ph)}">${esc(x.desc || '')}</textarea>
+    </div>
+    ${describeBtn}
+    ${catSel}
+    ${libHtml}
+    <div class="flex gap-2 pt-2">
+      ${refFilled(slot) ? `<button type="button" data-ref="remove" data-slot="${slot}" class="tap px-4 rounded-xl border border-slate-700 text-rose-300 text-sm font-bold">مسح الخانة</button>` : ''}
+      <button type="button" data-close="sheet" class="tap flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-bold">تم</button>
+    </div>`;
+}
+
+function refsChanged(rebuild) {
+  resetManual();
+  saveDraft();
+  renderRefTiles();
+  if (rebuild) { clearTimeout(fieldTimer); fieldTimer = setTimeout(rebuildBrief, 500); }
+  else renderAll();
+}
+
+function loadImageFile(file) {
+  return new Promise((res, rej) => {
+    const fr = new FileReader();
+    fr.onload = () => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = fr.result; };
+    fr.onerror = rej;
+    fr.readAsDataURL(file);
+  });
+}
+function resizeImage(im, max, q) {
+  const k = Math.min(1, max / Math.max(im.naturalWidth || im.width, im.naturalHeight || im.height));
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round((im.naturalWidth || im.width) * k));
+  c.height = Math.max(1, Math.round((im.naturalHeight || im.height) * k));
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, c.width, c.height);
+  ctx.drawImage(im, 0, 0, c.width, c.height);
+  return c.toDataURL('image/jpeg', q);
+}
+
+async function onRefFile(e) {
+  const file = e.target.files && e.target.files[0];
+  const slot = state.uploadSlot;
+  e.target.value = '';
+  if (!file || !slot) return;
+  if (!/^image\//.test(file.type)) { toast('الملف ليس صورة', 'اختر صورة JPG أو PNG.', true); return; }
+  try {
+    const im = await loadImageFile(file);
+    const prev = state.refs[slot] || {};
+    state.refs[slot] = { ...prev, img: resizeImage(im, 640, 0.82), thumb: resizeImage(im, 160, 0.72), descEn: prev.descEn && prev.desc ? prev.descEn : null };
+    if (state.sheet === 'slot-' + slot) renderSheet();
+    refsChanged(true);
+    toast('أُضيفت الصورة', store.get('of_key', '') ? 'اضغط «صِف من الصورة» لكتابة وصف دقيق.' : 'أضف وصفاً قصيراً لدقة أعلى.');
+  } catch (err) {
+    toast('تعذر قراءة الصورة', 'جرّب صورة أخرى.', true);
+  }
+}
+
+async function geminiDescribe(slot) {
+  const x = state.refs[slot];
+  if (!x || !x.img) return;
+  const key = store.get('of_key', '');
+  const model = store.get('of_model', 'gemini-2.5-flash') || 'gemini-2.5-flash';
+  const ask = {
+    character: 'Describe this person or character as a fixed visual reference for an AI video model: apparent age range, build, face and hair, outfit, colors and distinctive accessories. Do not name or identify the person.',
+    product: 'Describe this product precisely as a fixed visual reference for an AI video model: product type, shape, materials, colors, finish, stones or textures, logo and label placement, distinctive details.',
+    style: 'Describe this image as a style and location reference for an AI video model: setting, surfaces, color palette, lighting and mood.'
+  }[slot];
+  state.describing = slot;
+  renderSheet();
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 45000);
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+      method: 'POST', signal: ctrl.signal,
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [
+          { inlineData: { mimeType: 'image/jpeg', data: x.img.split(',')[1] } },
+          { text: `${ask} Reply with JSON only: {"description_en": string (one or two sentences), "description_ar": string (the same in Arabic), "category": one of ${JSON.stringify(Object.keys(CATEGORIES))}}` }
+        ] }],
+        generationConfig: { responseMimeType: 'application/json', temperature: 0.3 }
+      })
+    });
+    clearTimeout(timer);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error((data.error && data.error.message) || ('HTTP ' + res.status));
+    const txt = (((data.candidates || [])[0] || {}).content || {}).parts?.map((p) => p.text).join('') || '';
+    const g = JSON.parse(txt.replace(/^```json|```$/g, '').trim());
+    state.refs[slot] = { ...state.refs[slot], desc: g.description_ar || g.description_en || '', descEn: g.description_en || null };
+    if (slot === 'product' && CATEGORIES[g.category] && g.category !== 'other') { state.refs.product.category = g.category; state.usage = 'auto'; }
+    toast('تمت كتابة الوصف', 'راجعه وعدّله إن احتجت.');
+  } catch (e) {
+    toast('تعذر وصف الصورة', String(e.message || e).slice(0, 140), true);
+  }
+  state.describing = null;
+  if (state.sheet === 'slot-' + slot) renderSheet();
+  refsChanged(true);
+}
+
+function refAction(action, slot) {
+  if (action === 'upload') { state.uploadSlot = slot; $('ref-file').click(); return; }
+  if (action === 'clear-img') { if (state.refs[slot]) state.refs[slot] = { ...state.refs[slot], img: null, thumb: null }; if (!refFilled(slot)) state.refs[slot] = null; renderSheet(); refsChanged(true); return; }
+  if (action === 'remove') { state.refs[slot] = null; if (slot === 'product') state.usage = 'auto'; renderSheet(); refsChanged(true); return; }
+  if (action === 'describe') { if (!state.describing) geminiDescribe(slot); return; }
+  if (action === 'save') {
+    const x = state.refs[slot];
+    if (!x) return;
+    const name = ($('lib-name') && $('lib-name').value.trim()) || SLOT_UI[slot].short + ' ' + (store.get('of_lib', []).filter((l) => l.slot === slot).length + 1);
+    const lib = store.get('of_lib', []);
+    const item = { id: Date.now().toString(36), slot, name, desc: x.desc || '', descEn: x.descEn || null, category: x.category || '', thumb: x.thumb || null, img: x.img || null };
+    lib.unshift(item);
+    const trimmed = lib.filter((l, i) => lib.findIndex((m) => m.slot === l.slot && m.name === l.name) === i).slice(0, 24);
+    try { localStorage.setItem('of_lib', JSON.stringify(trimmed)); }
+    catch (e) {
+      try { localStorage.setItem('of_lib', JSON.stringify(trimmed.map((l) => l.id === item.id ? { ...l, img: null } : l))); toast('حُفظ بدون الصورة الكبيرة', 'مساحة المتصفح ممتلئة.', true); }
+      catch (e2) { toast('تعذر الحفظ', 'مساحة المتصفح ممتلئة؛ احذف بعض المحفوظات.', true); return; }
+    }
+    state.refs[slot] = { ...x, name };
+    renderSheet();
+    toast('حُفظ في محفوظاتي', name);
+  }
+}
+function libLoad(id) {
+  const l = store.get('of_lib', []).find((x) => x.id === id);
+  if (!l) return;
+  state.refs[l.slot] = { name: l.name, desc: l.desc, descEn: l.descEn, category: l.category, thumb: l.thumb, img: l.img || null };
+  if (l.slot === 'product') state.usage = 'auto';
+  renderSheet();
+  refsChanged(true);
+  toast('تم الاستدعاء', l.name);
+}
+function libDelete(id) {
+  store.set('of_lib', store.get('of_lib', []).filter((x) => x.id !== id));
+  renderSheet();
+}
+
+/* ---------- Omni post-generation edits ---------- */
+function renderEdits() {
+  const R = refInfo();
+  const hasPeople = R.hasChar || (state.brief && state.brief.persons.length);
+  const hasProduct = R.hasProd || effectiveMode() === 'product';
+  const items = [
+    hasProduct ? ['ثبّت شكل المنتج', `Keep the product exactly identical to ${R.prodImg ? 'Image ' + R.prodIdx : 'how it first appears'} in every frame: same shape, colors, materials, logo and label text.`] : null,
+    hasPeople ? ['ثبّت وجه الشخصية', `Keep the character's face, hair and outfit identical${R.charImg ? ' to Image ' + R.charIdx : ''} throughout the clip.`] : null,
+    hasPeople ? ['صحّح اليدين', 'Fix the hands so each has five natural fingers and a correct, relaxed grip.'] : null,
+    ['إضاءة أدفأ', 'Make the lighting warmer and softer, with a gentle golden rim light.'],
+    ['أبطئ الحركة', 'Slow down the main action slightly for a smoother, more premium feel.'],
+    hasProduct ? ['قرّب على المنتج', 'Add a tighter close-up on the product in the final second, label facing the camera.'] : null,
+    hasPeople ? ['نظرة للكاميرا', 'At the end, have the character glance at the camera with a subtle smile.'] : null,
+    ['نظّف النصوص', 'Remove any captions, subtitles or stray text from the frame.'],
+    ['مدّد الخاتمة', 'Extend the final shot by two seconds with a slow push-in.']
+  ].filter(Boolean);
+  state.edits = items;
+  $('pane-edits').innerHTML = `<p class="text-xs text-slate-400">بعد التوليد في Omni: حدّد الجزء الذي تريد تعديله، ثم الصق الجملة في المحادثة. يتعدل هذا الجزء فقط بدون إعادة التوليد.</p>` +
+    items.map((it, i) => `
+      <div class="flex items-center gap-2 rounded-xl border border-slate-800 bg-[#060911] p-2.5">
+        <div class="min-w-0 flex-1">
+          <p class="text-sm font-bold text-white">${esc(it[0])}</p>
+          <p class="mono text-[11px] text-slate-400 leading-snug">${esc(it[1])}</p>
+        </div>
+        <button type="button" data-copyedit="${i}" class="tap px-3 rounded-lg bg-slate-800 hover:bg-blue-600 text-sm font-bold flex-shrink-0">نسخ</button>
+      </div>`).join('');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  $('ref-file').addEventListener('change', onRefFile);
+  $('sheet-body').addEventListener('input', (e) => {
+    const slot = e.target.dataset && e.target.dataset.refdesc;
+    if (!slot) return;
+    const prev = state.refs[slot] || {};
+    state.refs[slot] = { ...prev, desc: e.target.value, descEn: null };
+    if (!refFilled(slot) && !prev.img) state.refs[slot] = e.target.value ? state.refs[slot] : null;
+    refsChanged(true);
+  });
+  $('sheet-body').addEventListener('change', (e) => {
+    if (!(e.target.dataset && e.target.dataset.refcat)) return;
+    state.refs.product = { ...(state.refs.product || {}), category: e.target.value };
+    state.usage = 'auto';
+    refsChanged(false);
+  });
+});
+
+/* ---------------- Events ---------------- */
+document.addEventListener('DOMContentLoaded', () => {
+  $('examples').innerHTML = EXAMPLES.map((e) => `<button type="button" data-example="${e.key}" class="tap px-3 py-2 rounded-xl bg-slate-800/70 hover:bg-slate-700 border border-slate-700 text-xs font-bold text-right flex items-center gap-2"><span class="text-base">${e.icon}</span><span>${esc(e.label)}</span></button>`).join('');
+
+  $('s-key').value = store.get('of_key', '');
+  $('s-model').value = store.get('of_model', 'gemini-2.5-flash');
+
+  document.body.addEventListener('click', (ev) => {
+    const t = ev.target.closest('button, [data-close]');
+    if (!t) return;
+    const d = t.dataset;
+    if (d.mcopy || d.export) ev.preventDefault();
+    if (d.sheet) openSheet(d.sheet);
+    else if (d.pick) pick(d.pick, d.val);
+    else if (d.example) { closeSheet(); loadExample(EXAMPLES.find((e) => e.key === d.example)); }
+    else if (d.seg) { state.tab = d.seg; renderSeg(); }
+    else if (d.tweak) { state.tweaks.has(d.tweak) ? state.tweaks.delete(d.tweak) : state.tweaks.add(d.tweak); renderTweaks(); resetManual(); renderAll(); }
+    else if (d.copyshot) { if (state.out) copyText(state.out.shots[+d.copyshot].text, 'لقطة ' + (+d.copyshot + 1)); }
+    else if (d.mcopy) { const o = state.out; copyText(d.mcopy === 'negative' ? o.negative.join(', ') : d.mcopy === 'json' ? o.json : o.pack); }
+    else if (d.export === 'pack') { download('omniflow_pack.txt', state.out.pack, 'text/plain;charset=utf-8'); toast('تم التحميل', 'omniflow_pack.txt'); }
+    else if (d.export === 'json') { download('omniflow_prompt.json', state.out.json, 'application/json'); toast('تم التحميل', 'omniflow_prompt.json'); }
+    else if (d.ref) refAction(d.ref, d.slot);
+    else if (d.libLoad) libLoad(d.libLoad);
+    else if (d.libDel) libDelete(d.libDel);
+    else if (d.copyedit) { const it = state.edits[+d.copyedit]; if (it) copyText(it[1], 'الصقه في محادثة Omni'); }
+    else if (d.action === 'gemini') runGemini();
+    else if (d.action === 'open-settings') $('settings').classList.remove('hidden');
+    else if (d.close) { if (d.close === 'sheet') closeSheet(); else $(d.close).classList.add('hidden'); }
+    else if (d.hfilter) { state.hfilter = d.hfilter; renderHistory(); }
+    else if (d.hload) {
+      const h = historyAll().find((x) => x.id === d.hload);
+      if (h) {
+        state.mode = h.mode; state.engine = h.engine; state.duration = h.duration; state.aspect = h.aspect;
+        state.modeFromExample = false;
+        $('idea').value = h.idea;
+        saveDraft();
+        rebuildBrief().then(() => {
+          if (!state.out) return;
+          $('out-main').value = h.prompt;
+          state.manualEdit = h.prompt !== state.out.main;
+          $('manual-bar').classList.toggle('hidden', !state.manualEdit);
+          state.tab = 'main'; renderSeg();
+        });
+        $('history').classList.add('hidden');
+      }
+    }
+    else if (d.hcopy) { const h = historyAll().find((x) => x.id === d.hcopy); if (h) copyText(h.prompt); }
+    else if (d.hfav) { store.set('of_history', historyAll().map((x) => x.id === d.hfav ? { ...x, fav: !x.fav } : x)); renderHistory(); }
+    else if (d.hdel) { store.set('of_history', historyAll().filter((x) => x.id !== d.hdel)); renderHistory(); }
+  });
+
+  $('idea').addEventListener('input', onIdeaChanged);
+  $('btn-clear').addEventListener('click', clearAll);
+  $('btn-more').addEventListener('click', () => openSheet('more'));
+
+  ['f-speaker', 'f-dialect', 'f-camera', 'f-lighting', 'p-container', 'p-action', 'a-method', 'a-font', 'a-anim', 'a-bg'].forEach((id) => {
+    $(id).addEventListener('change', () => { resetManual(); renderAll(); });
+  });
+  $('f-music').addEventListener('change', (e) => {
+    $('music-custom-wrap').classList.toggle('hidden', e.target.value !== 'custom');
+    resetManual(); renderAll();
+  });
+  ['f-dialogue', 'a-text', 'p-name'].forEach((id) => $(id).addEventListener('input', () => { clearTimeout(fieldTimer); fieldTimer = setTimeout(() => { resetManual(); renderAll(); }, 250); }));
+  ['f-bible', 'p-material', 'f-sfx', 'f-ambient', 'f-music-custom'].forEach((id) => $(id).addEventListener('input', () => { clearTimeout(fieldTimer); fieldTimer = setTimeout(() => { resetManual(); rebuildBrief(); }, 700); }));
+  $('btn-reset-details').addEventListener('click', () => { resetDetails(); resetManual(); rebuildBrief(); toast('رجعت التفاصيل للوضع التلقائي', ''); });
+
+  $('out-main').addEventListener('input', () => {
+    state.manualEdit = $('out-main').value !== (state.out && state.out.main);
+    $('manual-bar').classList.toggle('hidden', !state.manualEdit);
+  });
+  $('btn-regen').addEventListener('click', () => { resetManual(); renderAll(); });
+
+  $('btn-drawer').addEventListener('click', () => {
+    const open = $('drawer').classList.toggle('hidden') === false;
+    $('btn-drawer').setAttribute('aria-expanded', open);
+    $('drawer-chevron').style.transform = open ? 'rotate(180deg)' : '';
+  });
+
+  $('btn-copy').addEventListener('click', async () => {
+    const text = activeText();
+    if (!text) return;
+    if (await copyText(text)) { flashCopyButton(); saveHistory(false); }
+  });
+  $('btn-fav').addEventListener('click', () => { if (!state.out) return; saveHistory(true); toast('حُفظ في المفضلة', 'تجده في السجل ← المفضلة.'); });
+  $('btn-history').addEventListener('click', () => { renderHistory(); $('history').classList.remove('hidden'); });
+  $('btn-settings').addEventListener('click', () => $('settings').classList.remove('hidden'));
+
+  let keyTimer = null;
+  $('s-key').addEventListener('input', () => {
+    store.set('of_key', $('s-key').value.trim());
+    renderChips();
+    clearTimeout(keyTimer);
+    keyTimer = setTimeout(() => { if ($('s-key').value.trim()) toast('حُفظ المفتاح تلقائياً', 'زر «صياغة بـ Gemini» صار متاحاً.'); }, 800);
+  });
+  $('s-model').addEventListener('input', () => store.set('of_model', $('s-model').value.trim() || 'gemini-2.5-flash'));
+  $('s-save').addEventListener('click', () => {
+    store.set('of_key', $('s-key').value.trim());
+    store.set('of_model', $('s-model').value.trim() || 'gemini-2.5-flash');
+    $('settings').classList.add('hidden');
+    renderChips();
+    toast('تم الحفظ', $('s-key').value.trim() ? 'ظهر زر «صياغة بـ Gemini» في الإعدادات.' : 'تعمل الأداة بالمحرك المحلي.');
+  });
+  $('s-clear').addEventListener('click', () => {
+    store.set('of_key', '');
+    $('s-key').value = '';
+    renderChips();
+    toast('حُذف المفتاح', 'تعمل الأداة بالمحرك المحلي.');
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { closeSheet(); $('history').classList.add('hidden'); $('settings').classList.add('hidden'); }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); $('btn-copy').click(); }
+  });
+
+  setupMic();
+  renderTweaks();
+  renderSeg();
+  restoreDraft();
+  initIcons();
+  rebuildBrief();
+});
+</script>
+</body>
+</html>
