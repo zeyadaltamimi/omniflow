@@ -87,9 +87,10 @@
     <!-- Column 1: input -->
     <div class="contents lg:block lg:space-y-4">
       <section class="order-1 card p-4 space-y-3" style="background: radial-gradient(circle at 50% 0%, rgba(16,185,129,.09), #0d1424 65%);">
+        <div id="tpl-entry"></div>
         <label for="idea" class="text-sm font-black text-white flex items-center gap-2">
           <span class="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-300 text-xs flex items-center justify-center">1</span>
-          اكتب فكرتك بالعربي
+          <span id="idea-label">اكتب فكرتك بالعربي</span>
         </label>
         <div class="rounded-xl border-2 border-slate-700/80 focus-within:border-emerald-500 bg-[#060911] transition">
           <textarea id="idea" rows="4" class="w-full bg-transparent px-3.5 pt-3 pb-1 text-base leading-relaxed text-white placeholder:text-slate-500 focus:outline-none resize-none" placeholder="مثال: رجل سعودي يدخل مقهى، ثم يطلب قهوة ويقول: صباح الخير"></textarea>
@@ -437,7 +438,7 @@
 
 <script>
 /* =========================================================
-   OmniFlow Prompt Studio v3.3
+   OmniFlow Prompt Studio v3.4
    Pipeline: Arabic idea → brief (local or Gemini) → engine-specific prompt
    ========================================================= */
 
@@ -579,6 +580,7 @@ function detectMode(text) {
   return 'reels';
 }
 function effectiveMode() {
+  if (state.template) return 'product';
   if (state.mode !== 'auto') return state.mode;
   const sc = activeScenario();
   if (sc === 'ugc') return 'ugc';
@@ -874,7 +876,9 @@ function arabicBeats(f) {
 function planBeats(brief, mode, dur, f) {
   const sc = mode === 'arabic' ? null : activeScenario();
   let src;
+  const T = mode === 'arabic' ? null : activeTemplate();
   if (mode === 'arabic') src = arabicBeats(f);
+  else if (T) src = templateBeats(T);
   else if (sc && sc !== 'idea') src = scenarioBeats(sc);
   else {
     const R = refInfo();
@@ -887,7 +891,7 @@ function planBeats(brief, mode, dur, f) {
     };
     src = brief.beats.map((b) => ({ ...b, en: swap(b.en), speeches: b.speeches.map((s) => ({ ...s, speaker: swap(s.speaker) })) }));
   }
-  const target = targetBeats(dur);
+  const target = T ? (dur <= 4 ? 2 : dur <= 6 ? 3 : 4) : targetBeats(dur);
   if (mode !== 'arabic') {
     if (src.length === 0) src = [{ ...openingBeat(mode, brief), speeches: [] }, { ...closingBeat(mode, brief), speeches: [] }];
     else if (src.length === 1) src = target >= 3 ? [{ ...openingBeat(mode, brief), speeches: [] }, src[0], { ...closingBeat(mode, brief), speeches: [] }] : [src[0], { ...closingBeat(mode, brief), speeches: [] }];
@@ -992,6 +996,21 @@ function compose() {
   }
   let setting = mode === 'arabic' ? '' : (b.setting ? b.setting.full : '');
   if (R.hasStyle && mode !== 'arabic') setting = R.styleImg ? `match the location, color palette and lighting of Image ${R.styleIdx}${refStyleEn ? ' (' + refStyleEn + ')' : ''}` : (refStyleEn || setting);
+  // Ad template overrides
+  const T = mode === 'arabic' ? null : activeTemplate();
+  let creative = '';
+  if (T) {
+    const ideaEn = $('idea').value.trim() ? b.beats.map((x) => x.en).filter(Boolean).join('; ') : '';
+    if (!R.hasChar) charLine = T.person === 'none' ? (tf['f-bible'] || '') : `the model — ${tf['f-bible'] || T.defaultChar}`;
+    if (!R.hasProd) {
+      const name = $('p-name').value.trim();
+      const mat = tf['p-material'] ? `in ${tf['p-material']}` : '';
+      const what = ideaEn ? 'as described in the creative direction' : ($('p-container').value || (T.defaultProduct !== 'the product' ? T.defaultProduct : ''));
+      productLine = (name || what || mat) ? ['the product —', name ? `"${name}"` : '', what, mat].filter(Boolean).join(' ') : '';
+    }
+    if (!R.hasStyle) setting = T.setting;
+    if (ideaEn) creative = `Creative direction: ${ideaEn}.`;
+  }
   const bible = charLine;
 
   let refLine = '';
@@ -1005,20 +1024,21 @@ function compose() {
 
   // Style & lighting
   const lightSel = $('f-lighting').value;
-  let lighting = lightSel === 'auto' ? LIGHT[mode] : lightSel;
+  let lighting = lightSel === 'auto' ? (T ? T.lighting : LIGHT[mode]) : lightSel;
   const extras = [];
   if (state.tweaks.has('night')) extras.push('night-time scene');
   if (state.tweaks.has('golden')) extras.push('golden-hour sunlight');
   if (state.tweaks.has('bokeh')) extras.push('shallow depth of field with creamy bokeh');
   if (state.tweaks.has('haze')) extras.push('soft atmospheric haze with volumetric light rays');
-  const style = [STYLE[mode]].concat(extras).join(', ');
+  const style = [T ? T.style : STYLE[mode]].concat(extras).join(', ');
+  const mood = T ? T.mood : MOOD[mode];
   const orientation = aspect === '9:16' ? 'vertical' : aspect === '16:9' ? 'horizontal' : 'square';
 
   // Audio
   const dialect = DIALECTS[$('f-dialect').value];
   const speechLine = (s) => `${cap(s.speaker)} says in ${dialect}: "${s.line}"`;
-  const sfx = b.sfx.slice(0, 4).concat(tf['f-sfx'] ? [tf['f-sfx']] : []);
-  let ambient = tf['f-ambient'] || b.ambient.join(', ');
+  const sfx = (T ? T.sfx.slice() : b.sfx.slice(0, 4)).concat(tf['f-sfx'] ? [tf['f-sfx']] : []);
+  let ambient = tf['f-ambient'] || (T ? T.ambient : b.ambient.join(', '));
   if (!ambient) ambient = mode === 'ugc' ? 'natural room tone' : mode === 'product' ? 'clean studio room tone' : mode === 'arabic' ? 'soft airy whoosh as materials move' : 'subtle natural room tone';
   const musicSel = $('f-music').value;
   const music = musicSel === 'none' ? 'none, only natural on-set sound' : musicSel === 'soft' ? 'a soft, low score under the action' : (tf['f-music-custom'] || 'custom score');
@@ -1033,7 +1053,7 @@ function compose() {
   if (mode === 'product' && charLine && !negative.includes('morphing wardrobe')) negative.push('morphing wardrobe');
   const tl = (bt) => `[${fmtT(bt.start)}–${fmtT(bt.end)}]`;
   const secs = (bt) => `${Math.round(bt.start)}–${Math.round(bt.end)}s`;
-  const head = [refLine, charLine ? `Characters: ${charLine}` : '', productLine ? `Product: ${productLine}` : '', setting ? `Setting: ${setting}` : ''].filter(Boolean);
+  const head = [refLine, charLine ? `Characters: ${charLine}` : '', productLine ? `Product: ${productLine}` : '', creative, setting ? `Setting: ${setting}` : ''].filter(Boolean);
 
   let main = '';
   if (state.engine === 'omni' || state.engine === 'veo31') {
@@ -1046,7 +1066,7 @@ function compose() {
     lines.push(`Ambient: ${ambient}.`);
     lines.push(`Music: ${music}.`);
     lines.push('');
-    lines.push(`Style: ${style}. Lighting: ${lighting}. Mood: ${MOOD[mode]}.`);
+    lines.push(`Style: ${style}. Lighting: ${lighting}. Mood: ${mood}.`);
     lines.push(consistency);
     main = lines.join('\n');
   } else if (state.engine === 'kling3') {
@@ -1062,7 +1082,7 @@ function compose() {
   } else {
     const intro = [`${cap(style)}. ${setting ? cap(setting) + '.' : ''} ${charLine ? 'Characters: ' + charLine + '.' : ''} ${productLine ? 'Featuring ' + productLine + '.' : ''}`.replace(/\s{2,}/g, ' ').trim()];
     if (refLine) intro.push(refLine);
-    const lines = [...intro, '', 'Cinematography:', `Camera shot: ${beats.map((bt) => bt.shot.charAt(0).toLowerCase() + bt.shot.slice(1)).join('; then ')}`, `Lighting: ${lighting}`, `Mood: ${MOOD[mode]}`, '', 'Actions:'];
+    const lines = [...intro, '', 'Cinematography:', `Camera shot: ${beats.map((bt) => bt.shot.charAt(0).toLowerCase() + bt.shot.slice(1)).join('; then ')}`, `Lighting: ${lighting}`, `Mood: ${mood}`, '', 'Actions:'];
     beats.forEach((bt) => lines.push(`- (${secs(bt)}) ${bt.action}`));
     if (allSpeeches.length) {
       lines.push('', 'Dialogue:');
@@ -1155,7 +1175,7 @@ const ASPECT_AR = { '9:16': 'رأسي · ريلز وتيك توك', '16:9': 'ع�
 
 /* ---------------- Draft (per-browser convenience) ---------------- */
 function saveDraft() {
-  const d = { idea: $('idea').value, mode: state.mode, engine: state.engine, duration: state.duration, aspect: state.aspect, scenario: state.scenario, usage: state.usage, refs: state.refs };
+  const d = { template: state.template, idea: $('idea').value, mode: state.mode, engine: state.engine, duration: state.duration, aspect: state.aspect, scenario: state.scenario, usage: state.usage, refs: state.refs };
   try { localStorage.setItem('of_draft', JSON.stringify(d)); }
   catch (e) {
     const light = {};
@@ -1174,18 +1194,20 @@ function restoreDraft() {
   if (d.refs && typeof d.refs === 'object') ['character', 'product', 'style'].forEach((k) => { state.refs[k] = d.refs[k] || null; });
   if (d.scenario) state.scenario = d.scenario;
   if (d.usage) state.usage = d.usage;
+  if (d.template && TEMPLATES.some((t) => t.id === d.template)) state.template = d.template;
   return true;
 }
 
 /* ---------------- Rendering ---------------- */
-function ideaEmpty() { const R = refInfo(); return !$('idea').value.trim() && state.mode !== 'arabic' && !R.hasChar && !R.hasProd && !R.hasStyle; }
+function ideaEmpty() { if (state.template) return false; const R = refInfo(); return !$('idea').value.trim() && state.mode !== 'arabic' && !R.hasChar && !R.hasProd && !R.hasStyle; }
 
 function renderAll() {
+  renderTplEntry();
   renderChips();
   renderRefTiles();
   renderSeg();
   const empty = ideaEmpty();
-  $('examples-wrap').classList.toggle('hidden', !!$('idea').value.trim() || refInfo().hasChar || refInfo().hasProd || refInfo().hasStyle);
+  $('examples-wrap').classList.toggle('hidden', !!state.template || !!$('idea').value.trim() || refInfo().hasChar || refInfo().hasProd || refInfo().hasStyle);
   $('btn-examples').classList.toggle('hidden', !$('idea').value.trim());
   $('idea-hint').classList.toggle('hidden', !!$('idea').value.trim());
   $('empty-result').classList.toggle('hidden', !empty);
@@ -1216,7 +1238,7 @@ function renderChips() {
   const idea = $('idea').value.trim();
   const fresh = state.briefSource === 'gemini' && state.geminiIdea === idea;
   let html = '';
-  html += chipBtn('data-sheet="mode"', MODE_INFO[m].icon, esc(MODES[m]), state.mode === 'auto' ? 'تلقائي' : '');
+  if (!state.template) html += chipBtn('data-sheet="mode"', MODE_INFO[m].icon, esc(MODES[m]), state.mode === 'auto' ? 'تلقائي' : '');
   html += chipBtn('data-sheet="engine"', 'cpu', esc(eng.label.replace('Gemini ', '')), '');
   html += chipBtn('data-sheet="format"', 'ratio', `${state.duration} ث · ${esc(state.aspect)}`, '');
   const sc = activeScenario();
@@ -1381,6 +1403,9 @@ function renderSheet() {
     const cur = activeUsage().id;
     html = `<p class="text-xs text-slate-400">نوع المنتج: <b class="text-slate-200">${esc(CATEGORIES[cat])}</b> — تقدر تغيّره من خانة «المنتج».</p>`
       + list.map((u) => optRow('usage', u.id, esc(u.ar), '', cur === u.id, 'hand')).join('');
+  } else if (k === 'templates') {
+    title = 'قوالب إعلانية جاهزة';
+    html = templatesSheetHtml();
   } else if (k === 'examples') {
     title = 'أمثلة جاهزة';
     html = '<p class="text-xs text-slate-400">سيُستبدل النص الحالي بالمثال.</p>' + EXAMPLES.map((e) => `<button type="button" data-example="${e.key}" class="w-full tap flex items-center gap-3 px-3 py-2.5 rounded-xl border border-slate-800 bg-slate-900/60 hover:bg-slate-800 text-right"><span class="text-lg">${e.icon}</span><span class="flex-1 min-w-0"><span class="block text-sm font-bold text-white">${esc(e.label)}</span><span class="block text-xs text-slate-400 truncate">${esc(e.idea)}</span></span></button>`).join('');
@@ -1556,7 +1581,7 @@ function onIdeaChanged() {
   if (state.modeFromExample) { state.mode = 'auto'; state.modeFromExample = false; }
   resetManual();
   saveDraft();
-  $('examples-wrap').classList.toggle('hidden', !!$('idea').value.trim() || refInfo().hasChar || refInfo().hasProd || refInfo().hasStyle);
+  $('examples-wrap').classList.toggle('hidden', !!state.template || !!$('idea').value.trim() || refInfo().hasChar || refInfo().hasProd || refInfo().hasStyle);
   $('btn-examples').classList.toggle('hidden', !$('idea').value.trim());
   $('idea-hint').classList.toggle('hidden', !!$('idea').value.trim());
   clearTimeout(ideaTimer);
@@ -1564,6 +1589,7 @@ function onIdeaChanged() {
 }
 
 function loadExample(ex) {
+  state.template = null;
   state.mode = ex.mode;
   state.modeFromExample = true;
   $('idea').value = ex.idea;
@@ -1591,6 +1617,7 @@ function clearAll() {
   state.modeFromExample = false;
   state.tweaks.clear();
   state.refs = { character: null, product: null, style: null };
+  state.template = null;
   state.scenario = 'auto';
   state.usage = 'auto';
   state.briefSource = 'local';
@@ -1768,6 +1795,7 @@ function activeUsage() {
   return list.find((u) => u.id === state.usage) || list[0];
 }
 function scenarioOptions() {
+  if (state.template) return [];
   const R = refInfo();
   if (!R.hasProd) return [];
   const opts = [];
@@ -2066,6 +2094,277 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
+/* ---------------- Ad templates (multi-scene, professional) ---------------- */
+/* {C} = character / model reference, {P} = product reference. Each beat: ar (Arabic preview), shot (camera), en (action). */
+const TEMPLATES = [
+  {
+    id: 'perfume-noir', cat: 'perfume', icon: '🖤', name: 'فخامة ليلية',
+    desc: 'العطر يخرج من الدخان على سطح أسود لامع، ثم رذاذ ذهبي ولقطة بطل.',
+    person: 'none',
+    defaultProduct: 'a luxury glass perfume bottle with a sculpted gold cap',
+    setting: 'a dark studio with a polished black obsidian floor and slowly drifting smoke',
+    style: 'luxury fragrance commercial, photorealistic, high-end cinematic look, deep blacks with warm gold highlights',
+    lighting: 'low-key lighting with a single warm gold rim light and soft mirror-like reflections',
+    mood: 'mysterious, seductive, premium',
+    sfx: ['a soft glass clink', 'a fine perfume spray hiss', 'a low airy whoosh'],
+    ambient: 'near silence with a faint warm room tone',
+    beats: [
+      { ar: 'ماكرو على الغطاء والحواف الذهبية', shot: 'Extreme macro, 100mm macro lens, slow lateral slide', en: 'A thin line of warm light travels along the cap and edges of {P}, revealing its texture in the darkness' },
+      { ar: 'العطر يخرج من الدخان', shot: 'Slow dolly-in at product height, 50mm lens', en: '{P} emerges from drifting smoke on the polished obsidian floor as its reflection forms beneath it' },
+      { ar: 'رذاذ ذهبي بالحركة البطيئة', shot: 'Close-up, high-speed slow motion', en: 'A fine golden mist bursts from the nozzle of {P}, droplets glittering as they drift through the light' },
+      { ar: 'لقطة البطل الختامية', shot: 'Locked-off hero shot, centered', en: '{P} stands perfectly still in a pool of gold light as the mist settles; the frame holds with clean dark space above for a title' }
+    ]
+  },
+  {
+    id: 'oud-ritual', cat: 'perfume', icon: '🪔', name: 'طقوس العود في المجلس',
+    desc: 'شخصية تدخل مجلساً نجدياً، ترفع العطر من صينية خشبية وتتعطر وسط دخان البخور.',
+    person: 'optional',
+    defaultChar: 'an elegant Saudi man in his thirties with a neatly trimmed beard, wearing a crisp white thobe and a red-and-white shemagh',
+    defaultProduct: 'a luxury oud perfume bottle in dark glass with a gold cap',
+    setting: 'a modern Najdi majlis with warm stone walls, carved wooden details and a brass mabkhara releasing oud smoke',
+    style: 'premium Arabian fragrance commercial, photorealistic, warm cinematic grade',
+    lighting: 'warm amber window light cutting through soft incense haze',
+    mood: 'calm, dignified, confident',
+    sfx: ['soft footsteps on stone', 'a perfume spray hiss', 'faint crackle of oud coals'],
+    ambient: 'quiet majlis room tone',
+    beats: [
+      { ar: 'دخول الشخصية والبخور يتصاعد', shot: 'Slow tracking shot at eye level, 35mm lens', en: '{C} walks into the majlis as oud smoke curls through shafts of warm light' },
+      { ar: 'يرفع العطر من صينية خشبية', shot: 'Close-up on the hands, shallow depth of field', en: '{C} lifts {P} from a carved wooden tray, the glass catching the light' },
+      { ar: 'يتعطر ويغمض عينيه', shot: 'Medium close-up, 85mm lens, slow push-in', en: '{C} sprays {P} lightly on the neck and wrist, eyes closing for a calm, confident breath' },
+      { ar: 'العطر بجانب المبخرة', shot: 'Hero close-up on the product, rack focus', en: '{P} rests on the wooden tray beside the smoking mabkhara in sharp focus while {C} walks away softly out of focus; the frame holds' }
+    ]
+  },
+  {
+    id: 'jewel-velvet', cat: 'jewelry', icon: '💎', name: 'بريق على المخمل',
+    desc: 'ماكرو للأحجار على مخمل عنابي، ثم المودل تلبس القطعة وتنظر للكاميرا.',
+    person: 'optional',
+    defaultChar: 'an elegant woman in her late twenties with dark hair in a low chignon, wearing a strapless emerald satin evening gown',
+    defaultProduct: 'a diamond necklace with a central emerald pendant',
+    setting: 'a luxury set draped in deep burgundy velvet with soft golden bokeh in the background',
+    style: 'high-end jewelry commercial, photorealistic, rich jewel tones, ultra-sharp detail',
+    lighting: 'soft directional key light with tiny specular highlights that make every stone sparkle',
+    mood: 'elegant, exclusive, timeless',
+    sfx: ['a delicate chain jingle', 'a soft fabric rustle'],
+    ambient: 'hushed, elegant room tone',
+    beats: [
+      { ar: 'ماكرو للأحجار على المخمل', shot: 'Extreme macro, 100mm macro lens, slow slide', en: 'Light glides across the stones of {P} resting on burgundy velvet, each facet sparkling' },
+      { ar: 'رفع القطعة مع تحوّل التركيز', shot: 'Slow rack focus, close-up', en: 'Focus shifts from the velvet to {P} as it is lifted gently by its chain, catching the light' },
+      { ar: 'المودل تلبس القطعة', shot: 'Medium close-up, 85mm lens, slow push-in', en: '{C} wears {P} and turns slightly toward the light so the stones flash' },
+      { ar: 'لمسة ونظرة واثقة', shot: 'Close-up portrait, shallow depth of field', en: '{C} touches {P} with the fingertips and looks into the camera with quiet confidence; the frame holds' }
+    ]
+  },
+  {
+    id: 'dessert-bite', cat: 'food', icon: '🍰', name: 'قضمة بطيئة',
+    desc: 'ماكرو للقوام والصوص ينساب، الشوكة تكشف الطبقات، ثم قضمة وابتسامة.',
+    person: 'optional',
+    defaultChar: 'a young Saudi woman in a soft beige abaya and a loose shayla, natural makeup',
+    defaultProduct: 'a slice of layered chocolate cake with a glossy ganache',
+    setting: 'a bright modern café table of natural wood with a ceramic plate',
+    style: 'appetizing food commercial, photorealistic, warm and fresh',
+    lighting: 'soft natural window light with a gentle backlight that makes the textures glow',
+    mood: 'indulgent, cozy, delightful',
+    sfx: ['a fork sliding through the layers', 'a soft plate clink'],
+    ambient: 'gentle café murmur',
+    beats: [
+      { ar: 'ماكرو للقوام والصوص ينساب', shot: 'Extreme macro, 100mm macro lens, slow push-in', en: 'Macro on {P}: soft layers, glossy glaze and crumbs, a drizzle slowly running down the side' },
+      { ar: 'الشوكة تكشف الطبقات', shot: 'Top-down shot, locked', en: 'A fork slices cleanly through {P}, revealing the moist layers inside' },
+      { ar: 'قضمة بطيئة وابتسامة', shot: 'Medium close-up, 50mm lens', en: '{C} takes a slow bite of {P} and closes the eyes in delight, a natural smile forming' },
+      { ar: 'لقطة ختامية للطبق', shot: 'Hero shot at table height, slow push-in', en: '{P} sits in the center of the plate with a few crumbs around it, glaze glistening; the frame holds' }
+    ]
+  },
+  {
+    id: 'drink-ice', cat: 'drink', icon: '🧊', name: 'انتعاش وانفجار ثلج',
+    desc: 'قطرات تكثّف، سقوط في الثلج بالحركة البطيئة، صوت الفتح، ولقطة بطل.',
+    person: 'none',
+    defaultProduct: 'an ice-cold aluminum drink can',
+    setting: 'a clean set with a smooth gradient backdrop in the colors of the product',
+    style: 'high-energy beverage commercial, photorealistic, crisp and refreshing',
+    lighting: 'bright backlight glowing through the liquid with crisp specular highlights',
+    mood: 'refreshing, energetic, cool',
+    sfx: ['ice cubes clinking', 'a liquid splash', 'a crisp carbonation hiss'],
+    ambient: 'cool airy whoosh',
+    beats: [
+      { ar: 'قطرات التكثّف تنساب', shot: 'Macro, slow push-in', en: 'Cold condensation droplets slide down the surface of {P}' },
+      { ar: 'سقوط في الثلج مع رذاذ', shot: 'High-speed slow motion, low angle', en: '{P} drops into a splash of ice cubes and liquid, droplets frozen in mid-air' },
+      { ar: 'الفتح وصوت الغاز', shot: 'Close-up, slow motion', en: '{P} opens with a crisp hiss as bubbles rush upward' },
+      { ar: 'لقطة البطل بين الثلج', shot: 'Hero shot, slow 90-degree orbit', en: '{P} stands upright among scattered ice, glistening, label facing the camera; the frame holds' }
+    ]
+  },
+  {
+    id: 'skin-glow', cat: 'skincare', icon: '✨', name: 'إشراقة الصباح',
+    desc: 'قطرة لامعة، توزيع المنتج بين الأصابع، تطبيق على البشرة وإشراقة طبيعية.',
+    person: 'optional',
+    defaultChar: 'a young woman with clear glowing skin and hair pulled back, wearing a soft white robe',
+    defaultProduct: 'an amber glass serum dropper bottle',
+    setting: 'a minimal bright bathroom with white stone, soft linen and fresh green leaves',
+    style: 'clean beauty commercial, photorealistic, fresh and luminous',
+    lighting: 'soft diffused morning light from a large window',
+    mood: 'fresh, calm, radiant',
+    sfx: ['a soft droplet tap', 'a gentle skin pat'],
+    ambient: 'quiet morning room tone with faint birdsong',
+    beats: [
+      { ar: 'قطرة لامعة تنزل', shot: 'Macro, slow slide', en: 'A single glossy droplet forms and falls from {P}' },
+      { ar: 'توزيع المنتج بين الأصابع', shot: 'Close-up on the hands, shallow depth of field', en: '{C} warms a few drops of {P} between the fingertips' },
+      { ar: 'التطبيق على البشرة', shot: 'Close-up portrait, 85mm lens', en: '{C} gently pats the product onto the cheek; the skin catches the light with a healthy glow' },
+      { ar: 'العبوة على الحجر الأبيض', shot: 'Hero shot on white stone, slow push-in', en: '{P} stands on the white stone beside a green leaf, label facing the camera; the frame holds' }
+    ]
+  },
+  {
+    id: 'fashion-walk', cat: 'apparel', icon: '👗', name: 'مشية واثقة',
+    desc: 'تتبع للخطوات، مشية بالحركة البطيئة، تفاصيل القماش، ثم وقفة ونظرة.',
+    person: 'optional',
+    defaultChar: 'a confident model in their twenties with an elegant modern style',
+    defaultProduct: 'an elegant outfit',
+    setting: 'a modern architectural courtyard with clean lines and long late-afternoon shadows',
+    style: 'fashion film, photorealistic, editorial look with rich contrast',
+    lighting: 'golden late-afternoon sunlight with long shadows',
+    mood: 'confident, stylish, effortless',
+    sfx: ['footsteps on stone', 'soft fabric movement'],
+    ambient: 'a light outdoor breeze',
+    beats: [
+      { ar: 'تتبع الخطوات من زاوية منخفضة', shot: 'Low-angle tracking shot, 35mm lens', en: 'Following the steps of {C}, the fabric of {P} moving with each stride' },
+      { ar: 'مشية واثقة بالحركة البطيئة', shot: 'Medium tracking shot, slow motion', en: '{C} walks confidently toward the camera wearing {P}, the fabric catching the breeze' },
+      { ar: 'تفاصيل القماش', shot: 'Close-up details, rack focus', en: 'Close details of {P}: texture, stitching and the way the light falls on the fabric' },
+      { ar: 'وقفة ونظرة للكاميرا', shot: 'Medium shot, 85mm lens', en: '{C} stops, turns slightly and looks into the camera; the frame holds' }
+    ]
+  },
+  {
+    id: 'tech-unbox', cat: 'electronics', icon: '🎧', name: 'فتح الصندوق الذكي',
+    desc: 'فتح علبة أنيقة، ماكرو على التفاصيل، تشغيل وردة فعل، ثم لقطة بطل.',
+    person: 'optional',
+    defaultChar: 'a young Saudi man in a casual modern outfit',
+    defaultProduct: 'a sleek pair of wireless earbuds in a matte charging case',
+    setting: 'a minimal dark desk setup with soft LED accent light',
+    style: 'premium tech commercial, photorealistic, sleek and precise',
+    lighting: 'cool soft key light with subtle blue LED accents and crisp reflections',
+    mood: 'modern, satisfying, premium',
+    sfx: ['a box lid sliding off with a soft air release', 'a subtle power-on chime', 'a crisp click'],
+    ambient: 'quiet room tone',
+    beats: [
+      { ar: 'فتح العلبة وكشف المنتج', shot: 'Top-down shot, locked', en: 'The hands of {C} lift the lid of a matte box, revealing {P} nestled inside' },
+      { ar: 'ماكرو على التفاصيل', shot: 'Macro, slow slide', en: 'Macro across the edges, materials and details of {P}, light tracing its surfaces' },
+      { ar: 'التشغيل وردة الفعل', shot: 'Medium close-up, 50mm lens', en: '{C} uses {P}; it lights up and {C} reacts with a satisfied smile' },
+      { ar: 'لقطة البطل', shot: 'Hero shot, slow 180-degree orbit', en: '{P} rests centered on the desk with a soft LED glow behind it; the frame holds' }
+    ]
+  },
+  {
+    id: 'deo-fresh', cat: 'deodorant', icon: '💨', name: 'انتعاش بعد التمرين',
+    desc: 'نهاية تمرين قوي، بخة سريعة بلقطة لائقة، رذاذ بارد، ثم ثقة وابتسامة.',
+    person: 'optional',
+    defaultChar: 'an athletic Saudi man in his late twenties in a fitted grey sports t-shirt',
+    defaultProduct: 'a sleek deodorant spray can',
+    setting: 'a modern gym locker room with cool tones and clean lines',
+    style: 'energetic sports commercial, photorealistic, crisp and fresh',
+    lighting: 'cool crisp lighting with a bright rim light',
+    mood: 'fresh, energetic, confident',
+    sfx: ['heavy breathing', 'a locker door clank', 'a crisp spray hiss'],
+    ambient: 'distant gym ambience',
+    beats: [
+      { ar: 'نهاية تمرين قوي', shot: 'Tracking shot, slow motion', en: '{C} finishes an intense workout, breathing hard, sweat catching the light' },
+      { ar: 'بخة سريعة بلقطة لائقة', shot: 'Medium shot framed from the chest up', en: '{C} takes {P} from the locker and gives a quick spray, framed tastefully from the shoulders up' },
+      { ar: 'رذاذ بارد يملأ الكادر', shot: 'Close-up, high-speed slow motion', en: 'A crisp cool mist from {P} fills the frame with icy light particles' },
+      { ar: 'ثقة وابتسامة', shot: 'Medium shot, 50mm lens', en: '{C} smiles confidently and holds {P} toward the camera; the frame holds' }
+    ]
+  },
+  {
+    id: 'any-reveal', cat: 'other', icon: '🎁', name: 'كشف سينمائي',
+    desc: 'صندوق تحت ضوء واحد يهتز وينفتح، والمنتج يرتفع ويدور. يناسب أي منتج.',
+    person: 'none',
+    defaultProduct: 'the product',
+    setting: 'a minimal studio with a seamless dark backdrop',
+    style: 'premium product launch commercial, photorealistic',
+    lighting: 'a dramatic soft spotlight from above with gentle falloff',
+    mood: 'anticipation, wow moment',
+    sfx: ['soft mechanical unfolding', 'a deep whoosh', 'a gentle shimmer'],
+    ambient: 'quiet studio air',
+    beats: [
+      { ar: 'صندوق تحت الضوء يهتز', shot: 'Wide locked shot', en: 'A sealed matte box sits in the center under a single spotlight, then trembles slightly' },
+      { ar: 'الصندوق ينفتح والضوء يتسرب', shot: 'Low angle, slow motion', en: 'The box panels unfold outward in one smooth motion, light spilling out' },
+      { ar: 'المنتج يرتفع ويدور', shot: 'Slow dolly-in', en: '{P} rises from inside the box into the spotlight, turning slowly' },
+      { ar: 'لقطة البطل الختامية', shot: 'Hero close-up, slow orbit', en: '{P} settles centered in the spotlight, every detail sharp; the frame holds with clean space for a title' }
+    ]
+  }
+];
+const TPL_CATS = { all: 'الكل', fav: '⭐ المفضلة', perfume: 'عطور', jewelry: 'مجوهرات', food: 'أكل', drink: 'مشروبات', skincare: 'عناية', apparel: 'أزياء', electronics: 'إلكترونيات', deodorant: 'مزيل عرق', other: 'عام' };
+Object.assign(state, { template: null, tplFilter: 'all' });
+
+function activeTemplate() { return state.template ? TEMPLATES.find((t) => t.id === state.template) || null : null; }
+function tplFavs() { return store.get('of_tplfav', []); }
+
+function templateBeats(t) {
+  const R = refInfo();
+  const C = R.C || 'the model';
+  const P = R.P || 'the product';
+  const fill = (s) => cap(s.replace(/\{C\}/g, C).replace(/\{P\}/g, P));
+  return t.beats.map((b) => ({ ar: b.ar, shot: b.shot, en: fill(b.en), speeches: [] }));
+}
+
+function renderTplEntry() {
+  const t = activeTemplate();
+  const el = $('tpl-entry');
+  if (!t) {
+    el.innerHTML = `<button type="button" data-sheet="templates" class="w-full tap rounded-xl border border-amber-500/40 bg-gradient-to-l from-amber-500/10 to-emerald-500/10 hover:from-amber-500/20 px-3 py-2.5 flex items-center gap-3 text-right">
+      <span class="text-2xl">🎬</span>
+      <span class="flex-1 min-w-0"><span class="block text-sm font-black text-amber-100">قوالب إعلانية جاهزة</span><span class="block text-xs text-slate-300">${TEMPLATES.length} قوالب احترافية متعددة المشاهد · أضف صورتك اختيارياً</span></span>
+      <i data-lucide="chevron-left" class="w-5 h-5 text-amber-200"></i>
+    </button>`;
+  } else {
+    el.innerHTML = `<div class="rounded-xl border border-amber-500/50 bg-amber-500/10 p-3 space-y-2">
+      <div class="flex items-start gap-3">
+        <span class="text-2xl">${t.icon}</span>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-black text-amber-100">${esc(t.name)} <span class="text-xs font-semibold text-amber-200/70">· ${esc(TPL_CATS[t.cat])}</span></p>
+          <p class="text-xs text-slate-300 mt-0.5">${esc(t.desc)}</p>
+          <p class="text-xs text-slate-400 mt-1">${t.person === 'none' ? 'قالب للمنتج وحده' : 'المودل اختياري: ارفع صورته في «المراجع» أو يُستخدم مودل افتراضي'}</p>
+        </div>
+        <button type="button" data-tpl-clear="1" aria-label="إلغاء القالب" class="tap w-11 rounded-lg bg-slate-800/80 text-slate-300 flex items-center justify-center flex-shrink-0"><i data-lucide="x" class="w-4 h-4"></i></button>
+      </div>
+      <button type="button" data-sheet="templates" class="tap w-full rounded-lg bg-slate-900/60 border border-slate-700 text-xs font-bold text-slate-200">تغيير القالب</button>
+    </div>`;
+  }
+  $('idea-label').textContent = t ? 'تفاصيل إضافية (اختياري)' : 'اكتب فكرتك بالعربي';
+  $('idea').rows = t ? 2 : 4;
+  if (t) $('idea-hint').classList.add('hidden');
+  $('idea').placeholder = t ? 'مثال: عطر أسود مطفي بغطاء ذهبي، اسم البراند، اللون…' : 'مثال: رجل سعودي يدخل مقهى، ثم يطلب قهوة ويقول: صباح الخير';
+}
+
+function templatesSheetHtml() {
+  const favs = tplFavs();
+  const f = state.tplFilter;
+  const cats = ['all', 'fav'].concat([...new Set(TEMPLATES.map((t) => t.cat))]);
+  const list = TEMPLATES.filter((t) => f === 'all' || (f === 'fav' ? favs.includes(t.id) : t.cat === f));
+  const filters = `<div class="flex gap-1.5 overflow-x-auto no-scrollbar pb-1 -mx-1 px-1">${cats.map((c) => `<button type="button" data-tplf="${c}" class="tap px-3 rounded-full text-xs font-bold whitespace-nowrap border ${f === c ? 'border-emerald-500 bg-emerald-500/15 text-emerald-200' : 'border-slate-700 bg-slate-900/60 text-slate-300'}">${esc(TPL_CATS[c])}</button>`).join('')}</div>`;
+  const cards = list.length ? list.map((t) => {
+    const on = state.template === t.id;
+    const fav = favs.includes(t.id);
+    return `<div class="rounded-xl border ${on ? 'border-emerald-500 bg-emerald-500/10' : 'border-slate-800 bg-slate-900/60'} p-3 space-y-2">
+      <div class="flex items-start gap-3">
+        <span class="text-2xl leading-none mt-0.5">${t.icon}</span>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-black text-white">${esc(t.name)}</p>
+          <p class="text-xs text-slate-400">${esc(TPL_CATS[t.cat])} · ${t.beats.length} مشاهد · ${t.person === 'none' ? 'بدون مودل' : 'مودل اختياري'}</p>
+          <p class="text-xs text-slate-300 mt-1 leading-relaxed">${esc(t.desc)}</p>
+        </div>
+        <button type="button" data-tplfav="${t.id}" aria-label="مفضلة" aria-pressed="${fav}" class="tap w-11 rounded-lg text-lg ${fav ? 'text-amber-300' : 'text-slate-500'}">${fav ? '★' : '☆'}</button>
+      </div>
+      <ol class="grid grid-cols-2 gap-x-3 gap-y-1">${t.beats.map((b, i) => `<li class="text-[11px] text-slate-400 flex gap-1"><span class="text-emerald-400 font-bold">${i + 1}</span><span class="truncate">${esc(b.ar)}</span></li>`).join('')}</ol>
+      <button type="button" data-tpl="${t.id}" class="tap w-full rounded-lg ${on ? 'bg-emerald-600 text-white' : 'bg-emerald-600/20 border border-emerald-500/40 text-emerald-200'} text-sm font-bold">${on ? '✓ القالب الحالي' : 'استخدم القالب'}</button>
+    </div>`;
+  }).join('') : `<p class="text-sm text-slate-400 text-center py-8">${f === 'fav' ? 'اضغط ☆ على أي قالب لإضافته للمفضلة.' : 'لا توجد قوالب هنا بعد.'}</p>`;
+  return filters + cards;
+}
+
+function useTemplate(id) {
+  state.template = id;
+  state.scenario = 'auto';
+  closeSheet();
+  resetManual();
+  saveDraft();
+  rebuildBrief();
+  const t = activeTemplate();
+  toast('تم اختيار القالب', t.person === 'none' ? 'أضف صورة المنتج في «المراجع» لنتيجة أدق.' : 'أضف صورة المنتج والمودل في «المراجع» (اختياري).');
+}
+
 /* ---------------- Events ---------------- */
 document.addEventListener('DOMContentLoaded', () => {
   $('examples').innerHTML = EXAMPLES.map((e) => `<button type="button" data-example="${e.key}" class="tap px-3 py-2 rounded-xl bg-slate-800/70 hover:bg-slate-700 border border-slate-700 text-xs font-bold text-right flex items-center gap-2"><span class="text-base">${e.icon}</span><span>${esc(e.label)}</span></button>`).join('');
@@ -2080,6 +2379,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (d.mcopy || d.export) ev.preventDefault();
     if (d.sheet) openSheet(d.sheet);
     else if (d.pick) pick(d.pick, d.val);
+    else if (d.tpl) useTemplate(d.tpl);
+    else if (d.tplClear) { state.template = null; resetManual(); saveDraft(); rebuildBrief(); }
+    else if (d.tplfav) { const f = tplFavs(); store.set('of_tplfav', f.includes(d.tplfav) ? f.filter((x) => x !== d.tplfav) : f.concat(d.tplfav)); renderSheet(); }
+    else if (d.tplf) { state.tplFilter = d.tplf; renderSheet(); }
     else if (d.example) { closeSheet(); loadExample(EXAMPLES.find((e) => e.key === d.example)); }
     else if (d.seg) { state.tab = d.seg; renderSeg(); }
     else if (d.tweak) { state.tweaks.has(d.tweak) ? state.tweaks.delete(d.tweak) : state.tweaks.add(d.tweak); renderTweaks(); resetManual(); renderAll(); }
