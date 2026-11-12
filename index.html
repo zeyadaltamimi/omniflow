@@ -50,10 +50,11 @@
         <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-500 to-blue-600 flex items-center justify-center"><i data-lucide="clapperboard" class="w-4 h-4 text-white"></i></div>
         <div>
           <h1 class="text-base font-black text-white leading-tight">OmniFlow Studio</h1>
-          <p class="text-xs text-slate-400">صانع برومبتات الإعلانات لـ Omni</p>
+          <p class="text-xs text-slate-400">صانع إعلانات لأي منتج · Omni</p>
         </div>
       </div>
       <div class="flex items-center gap-1.5">
+        <button id="btn-clients" type="button" aria-label="عملائي" class="tap px-3 rounded-xl bg-slate-800/80 border border-slate-700 flex items-center justify-center gap-1.5 text-xs font-bold"><i data-lucide="briefcase" class="w-4 h-4"></i><span class="hidden sm:inline">عملائي</span></button>
         <button id="btn-history" type="button" aria-label="السجل" class="tap w-11 rounded-xl bg-slate-800/80 border border-slate-700 flex items-center justify-center"><i data-lucide="history" class="w-5 h-5"></i></button>
         <button id="btn-settings" type="button" aria-label="الإعدادات" class="tap w-11 rounded-xl bg-slate-800/80 border border-slate-700 flex items-center justify-center"><i data-lucide="settings" class="w-5 h-5"></i></button>
       </div>
@@ -70,6 +71,7 @@
 
       <!-- Product form -->
       <div id="form-product" class="space-y-4">
+        <div id="ctx-row" class="flex flex-wrap gap-2"></div>
         <div>
           <label class="lbl" for="p-name">اسم المنتج</label>
           <input id="p-name" class="field tap" placeholder="مثال: دونات بالشوكولاتة، عطر عود ملكي، خاتم ذهب" autocomplete="off">
@@ -83,6 +85,11 @@
           <p class="lbl">الصور <span class="text-xs font-semibold text-slate-500">(اختياري، وصورة المنتج تضمن دقته)</span></p>
           <div id="img-tiles" class="grid grid-cols-2 gap-2"></div>
           <input id="file-input" type="file" accept="image/*" class="hidden" aria-hidden="true">
+        </div>
+
+        <div>
+          <p class="lbl">أسلوب الإعلان</p>
+          <div id="styles" class="flex gap-2 overflow-x-auto no-scrollbar pb-1 -mx-1 px-1"></div>
         </div>
 
         <div>
@@ -442,14 +449,16 @@ const UNIVERSAL_EDITS = [
 ];
 
 /* =========================================================
-   OmniFlow Prompt Studio v4 — product ad prompt maker for Gemini Omni (Google Flow)
-   Workflow: product → 3–4 shots → each shot = start frame (Nano Banana) + one continuous Omni shot → chat edits
+   OmniFlow Prompt Studio v5 — ad prompt maker for any product (Gemini Omni in Google Flow)
+   Product → product card → ad style → 3–4 single-shot packs (start frame + Omni video) → feedback & learning
    ========================================================= */
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const cap = (s) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+const low = (s) => s ? s.charAt(0).toLowerCase() + s.slice(1) : s;
 const hasArabic = (s) => /[؀-ۿ]/.test(s || '');
 const words = (s) => (String(s || '').trim().match(/\S+/g) || []).length;
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } }
@@ -458,14 +467,40 @@ function icons() { try { window.lucide && window.lucide.createIcons(); } catch (
 function normalize(s) { return String(s || '').replace(/[ً-ْـ]/g, '').replace(/[أإآ]/g, 'ا').replace(/ى/g, 'ي').toLowerCase(); }
 
 const ASPECTS = { '9:16': 'vertical 9:16', '16:9': 'horizontal 16:9', '1:1': 'square 1:1' };
-const ASPECT_AR = { '9:16': 'رأسي (ريلز)', '16:9': 'عريض (يوتيوب)', '1:1': 'مربع' };
-const PERSON_AR = { auto: 'تلقائي', man: 'رجل', woman: 'امرأة', none: 'بدون أشخاص' };
+const ASPECT_AR = { '9:16': 'رأسي (ريلز وسناب)', '16:9': 'عريض (يوتيوب)', '1:1': 'مربع' };
+const PERSON_AR = { auto: 'تلقائي', man: 'رجل', woman: 'امرأة' };
 const METHOD_AR = { frames: 'صورة بداية (الأدق)', ingredients: 'مراجع مباشرة (أسرع)' };
+const AUDIENCE_AR = { saudi: 'سعودي', gulf: 'خليجي', global: 'عالمي' };
+const AUDIENCE_PEOPLE = {
+  gulf: { man: 'a stylish Gulf Arab man in his thirties wearing a white kandura and ghutra', woman: 'an elegant Gulf Arab woman in a modern embroidered abaya' },
+  global: { man: 'a stylish man in his thirties in smart casual clothes', woman: 'an elegant woman in her late twenties in a modern outfit' }
+};
+
+const STYLES = {
+  luxury: { ar: 'فخامة سينمائية', icon: '✨', d: 'لقطات بطل، ماكرو، واستخدام أنيق', en: 'premium cinematic commercial: hero shot, detail, elegant use, lifestyle payoff' },
+  product: { ar: 'المنتج فقط', icon: '📦', d: 'بدون أشخاص · أعلى دقة للمنتج', en: 'product-only commercial with no people: hero, detail, action, final hero' },
+  ugc: { ar: 'تجربة شخصية', icon: '🤳', d: 'جوال، كلام للكاميرا، عفوي', en: 'authentic UGC testimonial filmed on a smartphone: selfie talking, real use, honest reaction' },
+  unbox: { ar: 'فتح الصندوق', icon: '🎁', d: 'كشف المنتج من علبته', en: 'unboxing reveal: box opens, product lifted out, detail, first use' },
+  beforeafter: { ar: 'قبل وبعد', icon: '🔁', d: 'الفرق بعد استخدام المنتج', en: 'before and after: the problem moment, using the product, the improved result, hero' },
+  problem: { ar: 'مشكلة ← حل', icon: '💡', d: 'موقف يومي والمنتج هو الحل', en: 'problem-solution: an everyday problem, the product appears as the answer, use, happy payoff' }
+};
+
+const CAT_USE = { perfume: 'يُرش على الرقبة والمعصم', incense: 'يُبخَّر به في المجلس', jewelry: 'يُلبس', misbaha: 'تُمسك وتُمرَّر حباتها', food: 'يُؤكل', drink: 'يُشرب', dairy: 'يُشرب ويُقدَّم في الفطور', skincare: 'يُطبَّق على البشرة', bodycare: 'يُستخدم على الجسم', apparel: 'يُلبس', electronics: 'يُستخدم يومياً', restaurant: 'يُزار ويُتذوَّق', gym: 'يُزار ويُتمرَّن فيه', realestate: 'يُعرض من الجو', other: 'يُستخدم يومياً' };
+
+const FAIL_REASONS = [
+  ['changed', 'المنتج تغيّر', 'Keep everything the same, only restore the product to look exactly like the reference image: same shape, colors, label and logo, sharp in every frame.'],
+  ['small', 'المنتج صغير أو اختفى', 'Keep everything the same, only make the product larger, centered and clearly visible for the whole shot.'],
+  ['cut', 'فيه قطع', 'Remove the cut; make it one continuous shot with the same camera move.'],
+  ['hands', 'اليدين مشوهة', 'Keep everything the same, only fix the hands so each has five natural fingers and a relaxed, correct grip.'],
+  ['motion', 'الحركة غلط أو سريعة', 'Keep everything the same, only make the motion slower and simpler, with one smooth camera move.'],
+  ['light', 'الإضاءة أو الألوان', 'Keep everything the same, only make the lighting softer and warmer and the colors more natural.'],
+  ['text', 'ظهر نص أو كتابة', 'Keep everything the same, only remove any text, captions, letters or watermarks from the frame.']
+];
 
 const state = {
-  tab: 'product', cat: 'auto', person: 'auto', aspect: '9:16', method: 'frames',
+  tab: 'product', cat: 'auto', person: 'auto', aspect: '9:16', method: 'frames', style: 'luxury', clientId: null,
   images: { product: null, model: null }, uploadSlot: null,
-  result: null, resultKey: null, busy: false, sheet: null
+  result: null, resultKey: null, busy: false, sheet: null, editClient: null, failOpen: null
 };
 const trCache = new Map();
 let trDownUntil = 0;
@@ -491,6 +526,13 @@ async function translate(text) {
     return { en: '', ok: false };
   }
 }
+async function tr(text) { const r = await translate(text); return r.ok ? r.en : ''; }
+
+/* ---------------- Clients, products, wins ---------------- */
+const clients = () => store.get('of5_clients', []);
+const activeClient = () => clients().find((c) => c.id === state.clientId) || null;
+const products = () => store.get('of5_products', []);
+const wins = () => store.get('of5_wins', []);
 
 /* ---------------- Category ---------------- */
 function detectCat(text) {
@@ -500,187 +542,228 @@ function detectCat(text) {
   return 'other';
 }
 function activeCat() { return state.cat !== 'auto' ? state.cat : detectCat($('p-name').value + ' ' + $('p-benefit').value); }
-function peopleAllowed(cat) { return !CATS[cat].noPeople && state.person !== 'none'; }
 
-/* ---------------- Local prompt builder ---------------- */
+/* ---------------- Local builder ---------------- */
 function productPhrase(cat, nameEn) {
   const c = CATS[cat];
   let n = (nameEn || '').trim();
   if (!n) return 'the ' + c.noun;
-  n = /^[A-Z][a-z]/.test(n) && !/^[A-Z][a-z]+\s+[A-Z]/.test(n) ? n.charAt(0).toLowerCase() + n.slice(1) : n;
+  n = /^[A-Z][a-z]/.test(n) && !/^[A-Z][a-z]+\s+[A-Z]/.test(n) ? low(n) : n;
   if (cat === 'perfume' && !/bottle|flacon/i.test(n)) n += ' bottle';
   return /^the\s/i.test(n) ? n : 'the ' + n;
 }
-function personInfo(cat) {
-  const g = state.person === 'man' || state.person === 'woman' ? state.person : CATS[cat].gender;
+function personInfo(cat, client, whoEn) {
+  const g = state.person === 'man' || state.person === 'woman' ? state.person : (CATS[cat].gender === 'woman' ? 'woman' : CATS[cat].gender === 'man' ? 'man' : CATS[cat].gender);
   const base = PEOPLE[g] || PEOPLE.man;
-  return { full: base.full, short: base.short };
+  const aud = client && AUDIENCE_PEOPLE[client.audience];
+  const full = whoEn || (aud && aud[g]) || base.full;
+  return { full, short: base.short };
 }
-function pickShots(cat) {
+
+function styleShots(cat, style) {
   const c = CATS[cat];
   const prod = c.shots.filter((s) => !s.p);
   const ppl = c.shots.filter((s) => s.p);
-  if (!peopleAllowed(cat) || !ppl.length) return prod.slice(0, 4);
+  const noPeople = c.noPeople || !ppl.length;
+  if (style === 'product' || noPeople) return prod.slice(0, 4);
+  if (style === 'ugc') return [
+    { ar: 'سيلفي: يعرض المنتج ويتكلم', p: 1, f: '{M} holding {P} up next to the face in selfie framing at arm\'s length, natural home light', v: 'Handheld selfie shot at arm\'s length: {M} holds {P} up to the camera and talks about it with genuine excitement.', a: 'natural room tone' },
+    ppl[0],
+    { ar: 'ردة فعل صادقة', p: 1, f: 'close-up of {M} smiling at the camera with {P} near the face, natural light', v: 'Handheld close-up: {M} gives an honest, delighted reaction to the camera, holding {P} near the face.', a: 'natural room tone' }
+  ];
+  if (style === 'unbox') return [
+    { ar: 'العلبة تنفتح', f: 'a premium matte gift box on a clean table with its lid slightly open, soft light', v: 'Top-down shot: the lid of a premium matte box lifts slowly, revealing {P} nestled inside as soft light spills out.', a: 'a soft box-lid air release' },
+    { ar: 'إخراج المنتج من العلبة', p: 1, f: 'the hands of {M} lifting {P} out of an open premium box', v: 'Close-up: the hands of {M} lift {P} out of the box and turn it gently toward the light.', a: 'soft paper rustle' },
+    prod[1] || prod[0],
+    ppl[0]
+  ];
+  if (style === 'beforeafter') return [
+    { ar: 'قبل: المشكلة', p: 1, f: '{M} looking tired and frustrated in a dull, ordinary setting with flat light', v: 'Medium shot in flat, dull light: {M} looks tired and frustrated, struggling with a small everyday problem.', a: 'a quiet sigh, dull room tone' },
+    ppl[0],
+    { ar: 'بعد: الفرق واضح', p: 1, f: '{M} confident and happy in bright warm light, holding {P}', v: 'Medium shot in bright warm light: {M} smiles with new confidence, clearly better than before, {P} in hand and clearly visible.', a: 'light uplifting ambience' },
+    prod[0]
+  ];
+  if (style === 'problem') return [
+    { ar: 'موقف يومي مزعج', p: 1, f: '{M} facing a small everyday problem at home or work, slightly annoyed', v: 'Medium shot: {M} faces a small everyday problem and pauses, slightly annoyed, looking for a solution.', a: 'everyday ambience' },
+    { ar: 'المنتج يظهر كحل', f: '{P} centered in a beam of warm light against a clean background', v: 'Slow push-in: {P} appears in a beam of warm light as the clear answer.', a: 'a soft rising shimmer' },
+    ppl[0],
+    ppl[1] || prod[0]
+  ];
   return [prod[0], prod[1], ppl[0], ppl[1] || prod[2]].filter(Boolean);
 }
 
-function buildLocal(ctx) {
-  const c = CATS[ctx.cat];
-  const P = productPhrase(ctx.cat, ctx.nameEn);
-  const per = personInfo(ctx.cat);
+async function buildLocal(card) {
+  const cat = card.cat;
+  const c = CATS[cat];
+  const client = activeClient();
+  const [nameEn, benefitEn, whoEn, whereEn, noteEn, toneEn, colorsEn] = await Promise.all([
+    tr(card.what_ar), tr(card.moment_ar), card.whoEdited ? tr(card.who_ar) : '', tr(card.where_ar), tr($('f-note').value), client ? tr(client.tone) : '', client ? tr(client.colors) : ''
+  ]);
+  const P = productPhrase(cat, nameEn);
+  const per = personInfo(cat, client, whoEn);
   const hasProd = !!state.images.product;
   const hasModel = !!state.images.model;
   const frames = state.method === 'frames';
   const music = $('f-music').value === 'none' ? 'no music' : 'a soft, low background score';
   const line = $('f-line').value.trim();
-  const shots = pickShots(ctx.cat);
+  const shots = styleShots(cat, state.style).filter(Boolean);
+  const look = state.style === 'ugc' ? 'Authentic smartphone footage, natural light, slightly handheld, relatable.' : c.look;
+  const brand = [toneEn ? `${low(toneEn)} brand mood` : '', colorsEn ? `brand colors ${low(colorsEn)} subtly present in the set` : ''].filter(Boolean).join(', ');
   let lineUsed = false;
-  let benefitUsed = false;
   const lastPersonIdx = shots.map((s) => !!s.p).lastIndexOf(true);
+  const benefitIdx = lastPersonIdx >= 0 ? lastPersonIdx : shots.length - 1;
 
   const out = shots.map((s, i) => {
     const Mframe = hasModel ? 'the person from the uploaded photo' : per.full;
     const Mvideo = frames ? (hasModel ? 'the person' : per.short) : (hasModel ? 'the person from the uploaded photo' : per.full);
-    const fillF = (t) => t.replace(/\{P\}/g, P).replace(/\{M\}/g, Mframe);
-    const fillV = (t) => t.replace(/\{P\}/g, P).replace(/\{M\}/g, Mvideo);
+    const W = whereEn ? (/^(in|at|on|inside|outside|by|near)\s/i.test(whereEn) ? low(whereEn) : 'in ' + low(whereEn)) : '';
+    const placeRe = /(?:outdoors on|in|through|at|on) (?:an?|the) [a-z\s-]*?(?:hotel lobby|lobby|mall|majlis|café table|cafe table|café|kitchen counter|kitchen|breakfast table|terrace|courtyard|locker room|home|event|desk|gym|restaurant table|restaurant)(?: [a-z-]+)?/i;
+    const relocate = (t) => (!s.p || !W) ? t : (placeRe.test(t) ? t.replace(placeRe, W) : t.replace(/\.?$/, '') + `, ${W}`);
+    const fillF = (t) => relocate(t.replace(/\{P\}/g, P).replace(/\{M\}/g, Mframe));
+    const fillV = (t) => relocate(t.replace(/\{P\}/g, P).replace(/\{M\}/g, Mvideo)).replace(/([^.])$/, '$1.');
 
-    // Start frame prompt (Nano Banana)
     const refs = [];
     if (hasProd) refs.push(c.place ? `the uploaded photo of ${P}` : 'the uploaded product photo');
     if (s.p && hasModel) refs.push('the uploaded photo of the person');
-    let frame = `${refs.length ? `Using ${refs.join(' and ')}, create` : 'Create'} a photorealistic ${ASPECTS[state.aspect]} image: ${fillF(s.f)}. ${c.look}`;
+    let frame = `${refs.length ? `Using ${refs.join(' and ')}, create` : 'Create'} a photorealistic ${ASPECTS[state.aspect]} image: ${fillF(s.f)}`;
+    frame += `. ${look}`;
+    if (brand) frame += ` ${cap(brand)}.`;
     if (hasProd) frame += c.place ? ` Keep ${P} exactly as in the photo.` : ` Keep the product exactly as in the photo: same ${c.keep}, fully visible and in focus.`;
     else if (!c.place) frame += ' The product is fully visible and in focus.';
     if (s.p && hasModel) frame += " Keep the person's face and look exactly as in the photo.";
-    if (ctx.noteEn) frame += ` Additional direction: ${ctx.noteEn}.`;
+    if (noteEn) frame += ` Additional direction: ${noteEn}.`;
     frame += ' No text or watermark.';
 
-    // Omni video prompt
     const parts = [];
     if (frames) parts.push('Start from the provided image as the first frame.');
     else {
       const r = [];
       if (hasProd) r.push(`the uploaded photo of ${P} as the exact ${c.place ? 'location' : 'product'} reference`);
-      if (s.p && hasModel) r.push(`the uploaded photo of the person as the character reference`);
+      if (s.p && hasModel) r.push('the uploaded photo of the person as the character reference');
       if (r.length) parts.push(`Use ${r.join(' and ')}; do not use the images as the first frame.`);
     }
     parts.push('Single continuous shot, no cuts.');
     parts.push(fillV(s.v));
-    if (!benefitUsed && ctx.benefitEn && (i === lastPersonIdx || (lastPersonIdx < 0 && i === shots.length - 1))) {
-      parts.push(`The moment expresses: ${ctx.benefitEn}.`);
-      benefitUsed = true;
-    }
-    parts.push(c.look.replace(/\.$/, ', photorealistic.'));
+    if (i === benefitIdx && benefitEn) parts.push(`The moment expresses: ${low(benefitEn)}.`);
+    parts.push(look.replace(/\.$/, ', photorealistic.') + (brand && !frames ? ` ${cap(brand)}.` : ''));
     let audio = `Audio: ${s.a}`;
-    if (s.p && line && !lineUsed) { audio += `; ${Mvideo} says in ${$('f-dialect').value}: "${line}"`; lineUsed = true; }
-    audio += `, ${music}${(s.p && line && lineUsed) ? '' : ', no dialogue'}.`;
+    const speak = s.p && line && !lineUsed;
+    if (speak) { audio += `; ${Mvideo} says in ${$('f-dialect').value}: "${line}"`; lineUsed = true; }
+    audio += `, ${music}${speak ? '' : ', no dialogue'}.`;
     parts.push(audio);
-    const guard = (hasProd || frames)
+    parts.push((hasProd || frames)
       ? (c.guard ? c.guard.replace(/\{P\}/g, P) : `Keep the ${c.keep} of ${P} exactly as in the image; it stays sharp and fully visible.`)
-      : `Keep ${P} consistent in shape and colors throughout; it stays sharp and fully visible.`;
-    parts.push(guard);
+      : `Keep ${P} consistent in shape and colors throughout; it stays sharp and fully visible.`);
     parts.push('Clean frame, no on-screen text.');
     return { ar: s.ar, person: !!s.p, frame: frames ? frame : '', video: parts.join(' ') };
   });
 
   const edits = UNIVERSAL_EDITS.concat(c.edits || []).map(([ar, en]) => [ar, en.replace(/\{P\}/g, P)]);
-  const name = $('p-name').value.trim();
-  const benefit = $('p-benefit').value.trim();
-  const onscreen = [name, benefit, 'اطلبه الآن'].filter(Boolean);
-  return { source: 'local', cat: ctx.cat, shots: out, edits, onscreen, productEn: P };
+  const onscreen = [card.what_ar, card.moment_ar, client ? `${client.name} · اطلبه الآن` : 'اطلبه الآن'].filter(Boolean);
+  const warn = !nameEn && hasArabic(card.what_ar) ? 'الترجمة المجانية غير متاحة الآن، فاستخدمنا اسماً عاماً للمنتج. فعّل Gemini لنتيجة أدق.' : (CATS[cat].noPeople && !['product', 'luxury'].includes(state.style) ? 'هذا النوع بدون أشخاص، فاستخدمنا لقطات المكان.' : '');
+  return { source: 'local', cat, card, shots: out, edits, onscreen, warn };
 }
 
-/* ---------------- Gemini builder ---------------- */
-function geminiSystem() {
-  const playbook = Object.entries(CATS).map(([k, c]) => `- ${k}: ${c.shots.map((s) => s.v.replace(/\{P\}/g, 'the product').replace(/\{M\}/g, 'the person')).slice(0, 4).join(' | ')}`).join('\n');
-  return `You are a senior commercial director who writes production-ready prompts for Google Flow: Nano Banana Pro (start-frame images) and Gemini Omni Flash 1.2 (video). Reply with JSON only.
-
-Every Omni VIDEO prompt must:
-- Be 45–90 words of natural English prose. No lists, no timestamps, no "Image 1" tags.
-- Begin with the reference sentence: in "frames" mode exactly "Start from the provided image as the first frame."; in "ingredients" mode name each uploaded image's role in plain words (e.g. "Use the uploaded photo of the perfume bottle as the exact product reference and the uploaded photo of the man as the character reference; do not use the images as the first frame."). If no images and ingredients mode, skip it.
-- Then "Single continuous shot, no cuts." followed by ONE camera move and ONE simple action that clearly involves the product, naming the product the same way every time.
-- One sentence for setting, lighting and style. One audio sentence with sound effects and ambience, then "no music" unless music is requested; include a spoken line only if one is provided (keep it in Arabic, in quotes, under 15 words).
-- End with a fidelity sentence like "Keep the <product>'s shape, colors, label and logo exactly as in the image; it stays sharp and fully visible." and "Clean frame, no on-screen text."
-- Keep the product static or moving simply; avoid hands manipulating small parts unless that is the point of the shot.
-
-Every START-FRAME prompt (Nano Banana Pro, frames mode only): one paragraph, photorealistic, includes the aspect ratio, the product centered and fully visible, lighting that matches the video. If photos are uploaded, start with "Using the uploaded product photo (and the uploaded photo of the person)" and require the product (and face) to stay exactly as in the photos. No text or watermark.
-
-Shot list: 4 shots (3 if no people are allowed): (1) hero product shot, (2) product detail or product action (mist, pour, macro, steam…), (3) the product used naturally by a person — perfume is sprayed, food is eaten, jewelry is worn while the camera glides over it, drinks are sipped, places are explored by drone or walkthrough, (4) a lifestyle or public-place moment that expresses the product benefit. Each shot must work alone, as if the model has no context of the other shots. Respect Saudi culture: modest clothing and Saudi settings when relevant.
-
-Category playbook for inspiration:
-${playbook}
-
-JSON schema:
-{"product_en": string (short English name used in prompts, e.g. "the Royal Oud perfume bottle"),
- "category": one of ${JSON.stringify(Object.keys(CATS))},
- "product_traits_en": string (shape, colors, materials, label position — from the photo if provided),
- "shots": [{"title_ar": string (short Arabic title), "needs_person": boolean, "frame_prompt": string (empty in ingredients mode), "video_prompt": string}],
- "edits": [{"ar": string, "en": string (starts with "Keep everything the same, only ...")}],
- "onscreen_ar": [string (short Arabic headline, benefit line and call to action for editing)]}`;
+function localCard() {
+  const cat = activeCat();
+  const g = state.person === 'man' || state.person === 'woman' ? state.person : CATS[cat].gender;
+  const whoAr = CATS[cat].noPeople || state.style === 'product' ? 'بدون أشخاص' : ({ man: 'رجل أنيق', woman: 'امرأة أنيقة', athlete: 'رياضي', chef: 'شيف' }[g] || 'شخص') + (activeClient() ? ` (${AUDIENCE_AR[activeClient().audience] || 'سعودي'})` : ' سعودي');
+  return { cat, what_ar: $('p-name').value.trim(), use_ar: CAT_USE[cat], who_ar: whoAr, where_ar: '', moment_ar: $('p-benefit').value.trim(), whoEdited: false };
 }
 
-async function buildGemini(ctx) {
+/* ---------------- Gemini ---------------- */
+async function gemini(parts, system, temperature) {
   const key = store.get('of_key', '');
   const model = store.get('of_model', 'gemini-2.5-flash') || 'gemini-2.5-flash';
-  const parts = [];
-  if (state.images.product) parts.push({ inlineData: { mimeType: 'image/jpeg', data: state.images.product.img.split(',')[1] } });
-  if (state.images.model) parts.push({ inlineData: { mimeType: 'image/jpeg', data: state.images.model.img.split(',')[1] } });
-  const imgNote = [state.images.product ? 'the first attached image is the product photo' : '', state.images.model ? `the ${state.images.product ? 'second' : 'first'} attached image is the person (model) photo` : ''].filter(Boolean).join('; ') || 'no images attached';
-  parts.push({ text: [
-    `Product name (Arabic): ${$('p-name').value.trim()}`,
-    `Benefit (Arabic): ${$('p-benefit').value.trim() || '—'}`,
-    `Category hint: ${ctx.cat}`,
-    `People: ${state.person === 'none' || CATS[ctx.cat].noPeople ? 'no people' : state.person === 'auto' ? 'choose what fits' : state.person}`,
-    `Mode: ${state.method}`,
-    `Aspect ratio: ${state.aspect}`,
-    `Music: ${$('f-music').value === 'none' ? 'no music' : 'soft music'}`,
-    `Spoken line: ${$('f-line').value.trim() || 'none'} (${$('f-dialect').value})`,
-    `Extra direction (Arabic): ${$('f-note').value.trim() || '—'}`,
-    `Images: ${imgNote}.`
-  ].join('\n') });
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 60000);
+  const body = { contents: [{ role: 'user', parts }], generationConfig: { responseMimeType: 'application/json', temperature: temperature ?? 0.7 } };
+  if (system) body.systemInstruction = { parts: [{ text: system }] };
   const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
-    method: 'POST', signal: ctrl.signal,
-    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
-    body: JSON.stringify({ systemInstruction: { parts: [{ text: geminiSystem() }] }, contents: [{ role: 'user', parts }], generationConfig: { responseMimeType: 'application/json', temperature: 0.7 } })
+    method: 'POST', signal: ctrl.signal, headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key }, body: JSON.stringify(body)
   });
   clearTimeout(timer);
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error((data.error && data.error.message) || ('HTTP ' + res.status));
   const txt = (((data.candidates || [])[0] || {}).content || {}).parts?.map((p) => p.text).join('') || '';
-  const g = JSON.parse(txt.replace(/^```json|```$/g, '').trim());
-  const shots = (g.shots || []).filter((s) => s && s.video_prompt).slice(0, 5).map((s) => ({ ar: s.title_ar || 'لقطة', person: !!s.needs_person, frame: state.method === 'frames' ? (s.frame_prompt || '') : '', video: s.video_prompt }));
-  if (!shots.length) throw new Error('لم يرجع Gemini لقطات');
-  const cat = CATS[g.category] ? g.category : ctx.cat;
-  const edits = (g.edits || []).filter((e) => e && e.en).map((e) => [e.ar || 'تعديل', e.en]);
-  return { source: 'gemini', cat, shots, edits: edits.length ? edits : UNIVERSAL_EDITS.map(([a, e]) => [a, e.replace(/\{P\}/g, g.product_en || 'the product')]), onscreen: (g.onscreen_ar || []).slice(0, 4), productEn: g.product_en || '', traits: g.product_traits_en || '' };
+  return JSON.parse(txt.replace(/^```json|```$/g, '').trim());
 }
 
-/* ---------------- Free idea ---------------- */
+function geminiSystem() {
+  return `You are a senior commercial director. For ANY product in the world you first understand the product, then write production-ready prompts for Google Flow: Nano Banana Pro (start-frame images) and Gemini Omni Flash 1.2 (video). Reply with JSON only.
+
+STEP 1 — Product card (Arabic): what it is, how it is naturally used (worn, eaten, drunk, sprayed, applied, used as a device, visited, driven, gifted, displayed…), who uses it, where, and the moment that shows its benefit. If the user supplies an edited card, treat it as ground truth.
+
+STEP 2 — Shots. Follow the requested ad style. 4 shots (3 if no people). Each shot must work alone as if the model has no context of other shots.
+
+Every Omni VIDEO prompt:
+- 45–90 words of natural English prose. No lists, no timestamps, no "Image 1" tags.
+- Begin in "frames" mode with exactly "Start from the provided image as the first frame."; in "ingredients" mode name each uploaded image's role in plain words and add "do not use the images as the first frame".
+- Then "Single continuous shot, no cuts." + ONE camera move + ONE simple action that clearly involves the product, naming the product the same way every time.
+- One sentence for setting, lighting and style (apply the brand mood and colors when given). One audio sentence: sound effects and ambience, then "no music" unless music is requested; include a spoken line only if provided (in Arabic, in quotes, under 15 words).
+- End with a fidelity sentence ("Keep the shape, colors, label and logo of <product> exactly as in the image; it stays sharp and fully visible.") and "Clean frame, no on-screen text."
+- Keep the product static or moving simply; avoid hands manipulating small parts unless that is the point of the shot.
+
+Every START-FRAME prompt (frames mode only): one photorealistic paragraph with the aspect ratio, the product centered and fully visible, lighting that matches the video. If photos are uploaded, start with "Using the uploaded product photo (and the uploaded photo of the person)" and require the product (and face) to stay exactly as in the photos. No text or watermark.
+
+People follow the audience: Saudi → Saudi people and settings (modest clothing); Gulf → Gulf Arab people; Global → international people. Always culturally respectful.
+
+JSON schema:
+{"card": {"what_ar": string, "use_ar": string, "who_ar": string, "where_ar": string, "moment_ar": string},
+ "category": one of ${JSON.stringify(Object.keys(CATS))},
+ "product_en": string (short English name used in prompts),
+ "shots": [{"title_ar": string, "needs_person": boolean, "frame_prompt": string (empty in ingredients mode), "video_prompt": string}],
+ "edits": [{"ar": string, "en": string (starts with "Keep everything the same, only ...")}],
+ "onscreen_ar": [string (short Arabic headline, benefit line and call to action for the editor)]}`;
+}
+
+async function buildGemini(card) {
+  const client = activeClient();
+  const parts = [];
+  if (state.images.product) parts.push({ inlineData: { mimeType: 'image/jpeg', data: state.images.product.img.split(',')[1] } });
+  if (state.images.model) parts.push({ inlineData: { mimeType: 'image/jpeg', data: state.images.model.img.split(',')[1] } });
+  const imgNote = [state.images.product ? 'the first attached image is the product photo' : '', state.images.model ? `the ${state.images.product ? 'second' : 'first'} attached image is the person (model) photo` : ''].filter(Boolean).join('; ') || 'no images attached';
+  const cat = card ? card.cat : activeCat();
+  const examples = wins().filter((w) => w.cat === cat).concat(wins().filter((w) => w.cat !== cat)).slice(0, 3);
+  parts.push({ text: [
+    `Product name (Arabic): ${$('p-name').value.trim()}`,
+    `Benefit (Arabic): ${$('p-benefit').value.trim() || '—'}`,
+    card ? `User-edited product card (ground truth): ${JSON.stringify({ what: card.what_ar, use: card.use_ar, who: card.who_ar, where: card.where_ar, moment: card.moment_ar })}` : `Category hint: ${cat}`,
+    `Ad style: ${STYLES[state.style].en}`,
+    `People: ${state.style === 'product' || CATS[cat].noPeople ? 'no people' : state.person === 'auto' ? 'choose what fits' : state.person}`,
+    `Audience: ${client ? client.audience : 'saudi'}`,
+    client ? `Brand: ${client.name}; tone: ${client.tone || '—'}; colors: ${client.colors || '—'}; notes: ${client.notes || '—'}` : 'Brand: none',
+    `Mode: ${state.method}`, `Aspect ratio: ${state.aspect}`,
+    `Music: ${$('f-music').value === 'none' ? 'no music' : 'soft music'}`,
+    `Spoken line: ${$('f-line').value.trim() || 'none'} (${$('f-dialect').value})`,
+    `Extra direction (Arabic): ${$('f-note').value.trim() || '—'}`,
+    `Images: ${imgNote}.`,
+    examples.length ? `Video prompts that worked well for this user in Omni (match their quality and style):\n${examples.map((w) => '- ' + w.video).join('\n')}` : ''
+  ].filter(Boolean).join('\n') });
+  const g = await gemini(parts, geminiSystem(), 0.7);
+  const shots = (g.shots || []).filter((s) => s && s.video_prompt).slice(0, 5).map((s) => ({ ar: s.title_ar || 'لقطة', person: !!s.needs_person, frame: state.method === 'frames' ? (s.frame_prompt || '') : '', video: s.video_prompt }));
+  if (!shots.length) throw new Error('لم يرجع Gemini لقطات');
+  const outCat = CATS[g.category] ? g.category : cat;
+  const gc = g.card || {};
+  const newCard = card || { cat: outCat, what_ar: gc.what_ar || $('p-name').value.trim(), use_ar: gc.use_ar || CAT_USE[outCat], who_ar: gc.who_ar || '', where_ar: gc.where_ar || '', moment_ar: gc.moment_ar || $('p-benefit').value.trim(), whoEdited: false };
+  const edits = (g.edits || []).filter((e) => e && e.en).map((e) => [e.ar || 'تعديل', e.en]);
+  return { source: 'gemini', cat: outCat, card: { ...newCard, cat: outCat }, shots, edits: edits.length ? edits : UNIVERSAL_EDITS.map(([a, e]) => [a, e.replace(/\{P\}/g, g.product_en || 'the product')]), onscreen: (g.onscreen_ar || []).slice(0, 4) };
+}
+
 async function buildIdea() {
   const idea = $('i-text').value.trim();
-  const key = store.get('of_key', '');
-  if (key) {
-    const model = store.get('of_model', 'gemini-2.5-flash') || 'gemini-2.5-flash';
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
-      body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: `Rewrite this Arabic video idea as ONE prompt for Gemini Omni Flash in Google Flow: 45–90 words of natural English prose, starting with "Single continuous shot, no cuts.", one camera move, one clear action, one sentence for setting, lighting and style, an audio sentence (sound effects, ambience, no music), and end with "Clean frame, no on-screen text." Aspect ratio ${state.aspect}. Saudi cultural context when relevant. Reply with JSON {"title_ar": string, "video_prompt": string}.\nIdea: ${idea}` }] }], generationConfig: { responseMimeType: 'application/json', temperature: 0.7 } })
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error((data.error && data.error.message) || ('HTTP ' + res.status));
-    const g = JSON.parse(((((data.candidates || [])[0] || {}).content || {}).parts?.map((p) => p.text).join('') || '{}').replace(/^```json|```$/g, '').trim());
-    return { source: 'gemini', cat: 'idea', shots: [{ ar: g.title_ar || 'الفكرة', person: false, frame: '', video: g.video_prompt }], edits: UNIVERSAL_EDITS.slice(1).map(([a, e]) => [a, e]), onscreen: [] };
+  if (store.get('of_key', '')) {
+    const g = await gemini([{ text: `Rewrite this Arabic video idea as ONE prompt for Gemini Omni Flash in Google Flow: 45–90 words of natural English prose, starting with "Single continuous shot, no cuts.", one camera move, one clear action, one sentence for setting, lighting and style, an audio sentence (sound effects, ambience, no music), ending with "Clean frame, no on-screen text." Aspect ratio ${state.aspect}. Saudi cultural context when relevant. Reply with JSON {"title_ar": string, "video_prompt": string}.\nIdea: ${idea}` }], null, 0.7);
+    return { source: 'gemini', cat: 'idea', shots: [{ ar: g.title_ar || 'الفكرة', person: false, frame: '', video: g.video_prompt }], edits: UNIVERSAL_EDITS.slice(1), onscreen: [] };
   }
-  const tr = await translate(idea);
-  if (!tr.ok || !tr.en) throw new Error('الترجمة غير متاحة الآن، فعّل Gemini من الإعدادات.');
-  const en = cap(tr.en.replace(/[.]+$/, ''));
-  const video = `Single continuous shot, no cuts. ${en}. Cinematic, photorealistic, natural light, shallow depth of field, ${ASPECTS[state.aspect]} framing. Audio: natural ambient sound, no music, no dialogue. Clean frame, no on-screen text.`;
-  return { source: 'local', cat: 'idea', shots: [{ ar: idea.length > 60 ? idea.slice(0, 60) + '…' : idea, person: false, frame: '', video }], edits: UNIVERSAL_EDITS.slice(1).map(([a, e]) => [a, e]), onscreen: [] };
+  const en = await tr(idea);
+  if (!en) throw new Error('الترجمة غير متاحة الآن، فعّل Gemini من الإعدادات.');
+  const video = `Single continuous shot, no cuts. ${cap(en.replace(/[.]+$/, ''))}. Cinematic, photorealistic, natural light, shallow depth of field, ${ASPECTS[state.aspect]} framing. Audio: natural ambient sound, no music, no dialogue. Clean frame, no on-screen text.`;
+  return { source: 'local', cat: 'idea', shots: [{ ar: idea.length > 60 ? idea.slice(0, 60) + '…' : idea, person: false, frame: '', video }], edits: UNIVERSAL_EDITS.slice(1), onscreen: [] };
 }
 
 /* ---------------- Make ---------------- */
-async function make() {
+async function make(fromCard) {
   if (state.busy) return;
   if (state.tab === 'product' && !$('p-name').value.trim()) { toast('اكتب اسم المنتج أولاً', '', true); $('p-name').focus(); return; }
   if (state.tab === 'idea' && !$('i-text').value.trim()) { toast('اكتب الفكرة أولاً', '', true); $('i-text').focus(); return; }
@@ -690,29 +773,26 @@ async function make() {
     let r;
     if (state.tab === 'idea') r = await buildIdea();
     else {
-      const cat = activeCat();
-      const ctx = { cat };
+      const card = fromCard || null;
       if (store.get('of_key', '')) {
-        try { r = await buildGemini(ctx); }
+        try { r = await buildGemini(card); }
         catch (e) { toast('Gemini تعذّر، استخدمنا القوالب الجاهزة', String(e.message || e).slice(0, 120), true); }
       }
-      if (!r) {
-        const [n, b, no] = await Promise.all([translate($('p-name').value), translate($('p-benefit').value), translate($('f-note').value)]);
-        ctx.nameEn = n.ok ? n.en : '';
-        ctx.benefitEn = b.ok ? b.en.charAt(0).toLowerCase() + b.en.slice(1) : '';
-        ctx.noteEn = no.ok ? no.en : '';
-        r = buildLocal(ctx);
-        if (!n.ok && hasArabic($('p-name').value)) r.warn = 'الترجمة المجانية غير متاحة الآن، فاستخدمنا اسماً عاماً للمنتج. أضف مفتاح Gemini لنتيجة أدق.';
-      }
+      if (!r) r = await buildLocal(card || localCard());
     }
     r.name = state.tab === 'idea' ? 'فكرة حرة' : $('p-name').value.trim();
     r.method = state.tab === 'idea' ? 'text' : state.method;
     r.aspect = state.aspect;
+    r.style = state.style;
+    r.client = activeClient() ? activeClient().name : '';
     r.time = Date.now();
+    r.feedback = {};
     state.result = r;
     state.resultKey = inputKey();
+    state.failOpen = null;
     renderResult();
-    if (window.innerWidth < 1024) $('result').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    saveDraft();
+    if (window.innerWidth < 1024 && !fromCard) $('result').scrollIntoView({ behavior: 'smooth', block: 'start' });
   } catch (e) {
     toast('تعذّر الصنع', String(e.message || e).slice(0, 140), true);
   }
@@ -720,18 +800,32 @@ async function make() {
   renderMakeBtn();
 }
 function inputKey() {
-  return JSON.stringify([state.tab, $('p-name').value, $('p-benefit').value, $('i-text').value, state.cat, state.person, state.aspect, state.method, $('f-line').value, $('f-music').value, $('f-note').value, !!state.images.product, !!state.images.model]);
+  return JSON.stringify([state.tab, $('p-name').value, $('p-benefit').value, $('i-text').value, state.cat, state.person, state.aspect, state.method, state.style, state.clientId, $('f-line').value, $('f-music').value, $('f-note').value, !!state.images.product, !!state.images.model]);
 }
 
-/* ---------------- Rendering ---------------- */
+/* ---------------- Rendering: form ---------------- */
 function chip(attrs, icon, label, sub) {
   return `<button type="button" ${attrs} class="chipsel tap px-3 rounded-xl text-sm font-bold flex items-center gap-1.5"><i data-lucide="${icon}" class="w-4 h-4 opacity-80"></i><span>${label}</span>${sub ? `<span class="text-xs font-semibold opacity-60">${sub}</span>` : ''}</button>`;
+}
+function renderCtx() {
+  const c = activeClient();
+  const n = products().length;
+  $('ctx-row').innerHTML = `
+    <button type="button" data-sheet="clients" class="tap px-3 rounded-xl text-sm font-bold flex items-center gap-1.5 border ${c ? 'border-blue-500/60 bg-blue-500/10 text-blue-100' : 'border-slate-700 bg-[#111a2e] text-slate-300'}"><i data-lucide="briefcase" class="w-4 h-4"></i>${c ? esc(c.name) : 'بدون عميل'}</button>
+    <button type="button" data-sheet="products" class="tap px-3 rounded-xl text-sm font-bold flex items-center gap-1.5 border border-slate-700 bg-[#111a2e] text-slate-300"><i data-lucide="package-search" class="w-4 h-4"></i>منتجاتي${n ? ` <span class="text-xs opacity-60">${n}</span>` : ''}</button>`;
+  icons();
+}
+function renderStyles() {
+  $('styles').innerHTML = Object.entries(STYLES).map(([k, s]) => `<button type="button" data-style="${k}" aria-pressed="${state.style === k}" class="flex-shrink-0 w-[118px] tap rounded-xl border p-2.5 text-right ${state.style === k ? 'border-emerald-500 bg-emerald-500/15' : 'border-slate-700 bg-[#0a1020] hover:bg-slate-900'}">
+    <span class="block text-lg leading-none">${s.icon}</span>
+    <span class="block text-xs font-black mt-1.5 ${state.style === k ? 'text-emerald-100' : 'text-white'}">${s.ar}</span>
+    <span class="block text-[11px] text-slate-400 mt-0.5 leading-snug">${s.d}</span></button>`).join('');
 }
 function renderChips() {
   const cat = activeCat();
   const c = CATS[cat];
   let h = chip('data-sheet="cat"', 'tag', `${c.icon} ${esc(c.ar)}`, state.cat === 'auto' ? 'تلقائي' : '');
-  if (!c.noPeople) h += chip('data-sheet="person"', 'user-round', esc(PERSON_AR[state.person]), state.person === 'auto' ? (CATS[cat].gender === 'woman' ? 'امرأة' : 'رجل') : '');
+  if (!c.noPeople && state.style !== 'product') h += chip('data-sheet="person"', 'user-round', esc(PERSON_AR[state.person]), state.person === 'auto' ? (c.gender === 'woman' ? 'امرأة' : 'رجل') : '');
   h += chip('data-sheet="aspect"', 'ratio', esc(state.aspect), '');
   h += chip('data-sheet="method"', 'layers', esc(METHOD_AR[state.method]), '');
   $('chips').innerHTML = h;
@@ -760,17 +854,51 @@ function renderTab() {
 }
 function renderMakeBtn() {
   const hasKey = !!store.get('of_key', '');
-  $('make-label').textContent = state.busy ? (hasKey ? 'Gemini يكتب اللقطات…' : 'جاري الصنع…') : (state.tab === 'idea' ? 'اصنع البرومبت' : 'اصنع البرومبتات');
+  $('make-label').textContent = state.busy ? (hasKey ? 'Gemini يحلل المنتج ويكتب اللقطات…' : 'جاري الصنع…') : (state.tab === 'idea' ? 'اصنع البرومبت' : 'اصنع البرومبتات');
   $('btn-make').disabled = state.busy;
   $('btn-make').querySelector('i, svg')?.classList.toggle('spin', state.busy);
-  $('make-hint').innerHTML = hasKey ? '✨ يعمل بـ Gemini ويشوف صورك' : 'يعمل بقوالب جاهزة · <button type="button" data-open="settings" class="text-blue-300 underline">فعّل Gemini لنتيجة مخصصة</button>';
-  const stale = state.result && state.resultKey !== inputKey();
+  $('make-hint').innerHTML = hasKey ? '✨ يعمل بـ Gemini: يحلل منتجك ويشوف صورك' : 'يعمل بقوالب جاهزة · <button type="button" data-open="settings" class="text-blue-300 underline">فعّل Gemini لأي منتج</button>';
+  const stale = state.result && state.result.cat !== 'idea' && state.tab === 'product' && state.resultKey !== inputKey();
   $('btn-make').classList.toggle('ring-2', !!stale);
   $('btn-make').classList.toggle('ring-amber-400', !!stale);
 }
 
+/* ---------------- Rendering: result ---------------- */
 function copyBtn(attr, label) {
   return `<button type="button" ${attr} class="tap px-3 rounded-lg bg-slate-800 hover:bg-emerald-600 text-xs font-bold flex items-center gap-1 flex-shrink-0"><i data-lucide="copy" class="w-3.5 h-3.5"></i>${label || 'نسخ'}</button>`;
+}
+function cardHtml(r) {
+  if (!r.card) return '';
+  const f = (k, label, ph) => `<label class="block"><span class="text-[11px] font-bold text-slate-400">${label}</span><input data-card="${k}" class="field tap mt-0.5 text-sm" value="${esc(r.card[k] || '')}" placeholder="${ph}"></label>`;
+  return `<details class="rounded-xl border border-blue-500/30 bg-blue-500/5" ${r.card.open ? 'open' : ''} id="card-box">
+    <summary class="tap px-3 flex items-center justify-between cursor-pointer list-none">
+      <span class="text-sm font-black text-blue-100">🧠 بطاقة المنتج <span class="text-xs font-semibold text-blue-200/70">· ${esc(r.card.use_ar || '')}</span></span>
+      <span class="text-xs text-blue-200/80 flex items-center gap-1">عدّل<i data-lucide="chevron-down" class="w-4 h-4"></i></span>
+    </summary>
+    <div class="p-3 pt-0 space-y-2">
+      <p class="text-xs text-slate-400">هذا فهم الأداة لمنتجك. عدّل أي خانة ثم اضغط «أعد الصنع».</p>
+      ${f('what_ar', 'وش هو', 'وصف المنتج')}
+      ${f('use_ar', 'كيف يُستخدم', 'يُلبس، يُؤكل، يُرش…')}
+      ${f('who_ar', 'مين يستخدمه', 'شاب سعودي، أم، رياضي…')}
+      ${f('where_ar', 'وين', 'مجلس، مقهى، نادي، سيارة…')}
+      ${f('moment_ar', 'لحظة الفائدة', 'المشهد اللي يبيّن قيمته')}
+      <button type="button" data-remake="1" class="tap w-full rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-black">أعد الصنع بهذه البطاقة</button>
+    </div>
+  </details>`;
+}
+function feedbackHtml(r, i) {
+  const fb = r.feedback[i];
+  if (fb === 'win') return `<p class="text-xs text-emerald-300 font-bold">✅ نجحت · حُفظت لتتعلم منها الأداة</p>`;
+  const open = state.failOpen === i;
+  return `<div class="flex items-center gap-1.5 flex-wrap">
+      <span class="text-[11px] text-slate-500">بعد التجربة:</span>
+      <button type="button" data-win="${i}" class="px-2.5 py-1.5 rounded-lg bg-emerald-600/15 border border-emerald-500/40 text-emerald-200 text-xs font-bold">✅ نجحت</button>
+      <button type="button" data-fail="${i}" class="px-2.5 py-1.5 rounded-lg ${open ? 'bg-rose-600/30' : 'bg-rose-600/10'} border border-rose-500/40 text-rose-200 text-xs font-bold">❌ ما ضبطت</button>
+    </div>
+    ${open ? `<div class="rounded-lg border border-rose-500/30 bg-rose-500/5 p-2 space-y-1.5">
+      <p class="text-[11px] text-rose-200">وش المشكلة؟ اضغط عليها وانسخ التعديل، ثم الصقه في محادثة Omni:</p>
+      <div class="flex flex-wrap gap-1.5">${FAIL_REASONS.map(([k, ar]) => `<button type="button" data-fix="${i}:${k}" class="px-2.5 py-1.5 rounded-lg bg-slate-800 text-xs font-bold">${ar}</button>`).join('')}</div>
+    </div>` : ''}`;
 }
 function renderResult() {
   const r = state.result;
@@ -783,15 +911,15 @@ function renderResult() {
   const steps = r.method === 'frames'
     ? `<ol class="text-xs text-slate-300 space-y-1 leading-relaxed">
         <li><b class="text-emerald-300">1.</b> في Flow أنشئ <b>صورة البداية</b> بـ Nano Banana${state.images.product || state.images.model ? ' وارفع صورك معها' : ''}.</li>
-        <li><b class="text-emerald-300">2.</b> اختر <b>Frames to Video</b> ← Omni، ضع الصورة كإطار أول، والصق برومبت الفيديو. ابدأ بـ 360p للتجربة.</li>
-        <li><b class="text-emerald-300">3.</b> أصلح بالمحادثة من «تعديلات»، ثم ارفع الدقة واجمع اللقطات في المونتاج.</li></ol>`
+        <li><b class="text-emerald-300">2.</b> اختر <b>Frames to Video</b> ← Omni، ضع الصورة كإطار أول، والصق برومبت الفيديو. جرّب بـ 360p أولاً.</li>
+        <li><b class="text-emerald-300">3.</b> قيّم اللقطة ✅ / ❌. إذا ما ضبطت انسخ التعديل المقترح والصقه في محادثة Omni.</li></ol>`
     : r.method === 'ingredients'
-      ? `<p class="text-xs text-slate-300 leading-relaxed">في Flow اختر <b>Ingredients to Video</b> ← Omni، وارفع ${state.images.product ? 'صورة المنتج' : ''}${state.images.product && state.images.model ? ' وصورة المودل' : state.images.model ? 'صورة المودل' : 'صورك'}، ثم الصق برومبت كل لقطة.</p>`
+      ? `<p class="text-xs text-slate-300 leading-relaxed">في Flow اختر <b>Ingredients to Video</b> ← Omni، وارفع صورك، ثم الصق برومبت كل لقطة وقيّمها ✅ / ❌.</p>`
       : `<p class="text-xs text-slate-300 leading-relaxed">في Flow اختر <b>Text to Video</b> ← Omni والصق البرومبت.</p>`;
   const shotHtml = r.shots.map((s, i) => {
     const wc = words(s.video);
     const wcCls = wc > 120 ? 'text-rose-300' : wc > 100 ? 'text-amber-300' : 'text-slate-500';
-    return `<div class="rounded-xl border border-slate-800 bg-[#0a0f1c] p-3 space-y-2.5">
+    return `<div class="rounded-xl border ${r.feedback[i] === 'win' ? 'border-emerald-500/50' : 'border-slate-800'} bg-[#0a0f1c] p-3 space-y-2.5">
       <div class="flex items-center gap-2">
         <span class="w-7 h-7 rounded-full bg-emerald-500/15 text-emerald-300 text-sm font-black flex items-center justify-center flex-shrink-0">${i + 1}</span>
         <p class="text-sm font-black text-white flex-1 min-w-0">${esc(s.ar)}</p>
@@ -803,19 +931,23 @@ function renderResult() {
       <div class="space-y-1.5">
         <div class="flex items-center justify-between gap-2"><span class="text-xs font-bold text-emerald-200">${s.frame ? '②' : '▶'} الفيديو · Omni <span class="font-semibold ${wcCls}">(${wc} كلمة)</span></span>${copyBtn(`data-copy="v${i}"`)}</div>
         <div class="prompt mono">${esc(s.video)}</div></div>
+      ${r.cat !== 'idea' || true ? feedbackHtml(r, i) : ''}
     </div>`;
   }).join('');
   const editsHtml = r.edits.map((e, i) => `<div class="flex items-center gap-2 rounded-lg border border-slate-800 bg-[#0a0f1c] p-2"><div class="min-w-0 flex-1"><p class="text-xs font-bold text-white">${esc(e[0])}</p><p class="mono text-[11px] text-slate-400">${esc(e[1])}</p></div>${copyBtn(`data-copy="e${i}"`)}</div>`).join('');
   const onscreen = r.onscreen && r.onscreen.length ? `<div class="rounded-xl border border-slate-800 p-3 space-y-1.5"><p class="text-xs font-bold text-slate-300">✍️ نصوص للمونتاج (لا تطلبها من Omni)</p>${r.onscreen.map((t) => `<p class="text-sm text-white">• ${esc(t)}</p>`).join('')}</div>` : '';
   $('out').innerHTML = `
     <div class="flex items-start justify-between gap-2">
-      <div><p class="text-base font-black text-white">${esc(r.name)}</p><p class="text-xs text-slate-400">${catLabel} · ${r.shots.length} ${r.shots.length > 1 ? 'لقطات' : 'لقطة'} · ${esc(r.aspect)} · ${r.source === 'gemini' ? '✨ Gemini' : 'قوالب جاهزة'}</p></div>
+      <div class="min-w-0"><p class="text-base font-black text-white">${esc(r.name)}</p>
+      <p class="text-xs text-slate-400">${catLabel}${r.style && r.cat !== 'idea' ? ' · ' + STYLES[r.style].icon + ' ' + STYLES[r.style].ar : ''}${r.client ? ' · ' + esc(r.client) : ''} · ${esc(r.aspect)} · ${r.source === 'gemini' ? '✨ Gemini' : 'قوالب جاهزة'}</p></div>
+      ${r.cat !== 'idea' ? `<button type="button" data-saveprod="1" class="tap px-3 rounded-lg bg-slate-800 border border-slate-700 text-xs font-bold flex items-center gap-1 flex-shrink-0"><i data-lucide="bookmark-plus" class="w-4 h-4"></i>احفظ المنتج</button>` : ''}
     </div>
     ${r.warn ? `<p class="text-xs px-3 py-2 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-200">${esc(r.warn)}</p>` : ''}
+    ${cardHtml(r)}
     <div class="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3 space-y-1.5"><p class="text-xs font-black text-emerald-200">طريقة التنفيذ في Flow</p>${steps}</div>
     ${shotHtml}
     <details class="rounded-xl border border-slate-800">
-      <summary class="tap px-3 flex items-center justify-between cursor-pointer list-none text-sm font-bold text-slate-200"><span>🛠️ تعديلات بعد التوليد (الصقها في محادثة Omni)</span><i data-lucide="chevron-down" class="w-4 h-4 text-slate-400"></i></summary>
+      <summary class="tap px-3 flex items-center justify-between cursor-pointer list-none text-sm font-bold text-slate-200"><span>🛠️ تعديلات إضافية لمحادثة Omni</span><i data-lucide="chevron-down" class="w-4 h-4 text-slate-400"></i></summary>
       <div class="p-2 pt-0 space-y-1.5">${editsHtml}</div>
     </details>
     ${onscreen}`;
@@ -830,18 +962,31 @@ function optRow(kind, val, label, desc, on) {
     ${on ? '<i data-lucide="check" class="w-5 h-5 text-emerald-400"></i>' : ''}</button>`;
 }
 function openSheet(kind) { state.sheet = kind; renderSheet(); $('sheet').classList.remove('hidden'); }
-function closeSheet() { state.sheet = null; $('sheet').classList.add('hidden'); }
+function closeSheet() { state.sheet = null; state.editClient = null; $('sheet').classList.add('hidden'); }
+function clientForm(c) {
+  return `<div class="rounded-xl border border-blue-500/40 bg-blue-500/5 p-3 space-y-2">
+    <p class="text-sm font-black text-blue-100">${c.id ? 'تعديل العميل' : 'عميل جديد'}</p>
+    <label class="block"><span class="lbl">اسم البراند</span><input id="c-name" class="field tap" value="${esc(c.name || '')}" placeholder="مثال: عطور الملكي"></label>
+    <label class="block"><span class="lbl">ألوان الهوية</span><input id="c-colors" class="field tap" value="${esc(c.colors || '')}" placeholder="مثال: أسود وذهبي"></label>
+    <label class="block"><span class="lbl">النبرة</span><input id="c-tone" class="field tap" value="${esc(c.tone || '')}" placeholder="مثال: فخم وهادئ، شبابي، عائلي"></label>
+    <label class="block"><span class="lbl">الجمهور</span><select id="c-aud" class="field tap">${Object.entries(AUDIENCE_AR).map(([k, v]) => `<option value="${k}" ${c.audience === k ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
+    <label class="block"><span class="lbl">ملاحظات ثابتة (اختياري)</span><input id="c-notes" class="field tap" value="${esc(c.notes || '')}" placeholder="مثال: لا نستخدم نساء في الإعلانات"></label>
+    <div class="flex gap-2"><button type="button" data-csave="${c.id || ''}" class="tap flex-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-black text-sm">حفظ واختيار</button><button type="button" data-ccancel="1" class="tap px-4 rounded-lg bg-slate-800 text-sm font-bold">إلغاء</button></div>
+  </div>`;
+}
 function renderSheet() {
   const k = state.sheet;
   let t = '', h = '';
   if (k === 'cat') {
-    t = 'نوع المنتج';
+    t = 'نوع المنتج (للقوالب الجاهزة)';
     const det = detectCat($('p-name').value + ' ' + $('p-benefit').value);
-    h = optRow('cat', 'auto', `تلقائي <span class="text-xs text-slate-400">← ${CATS[det].icon} ${esc(CATS[det].ar)}</span>`, 'يُستنتج من اسم المنتج', state.cat === 'auto')
-      + Object.entries(CATS).map(([key, c]) => optRow('cat', key, `${c.icon} ${esc(c.ar)}`, c.shots.slice(0, 4).map((s) => s.ar).join(' · '), state.cat === key)).join('');
+    h = `<p class="text-xs text-slate-400">مع Gemini يُفهم أي منتج تلقائياً، وهذا الاختيار يُستخدم عند العمل بدونه.</p>`
+      + optRow('cat', 'auto', `تلقائي <span class="text-xs text-slate-400">← ${CATS[det].icon} ${esc(CATS[det].ar)}</span>`, 'يُستنتج من اسم المنتج', state.cat === 'auto')
+      + Object.entries(CATS).map(([key, c]) => optRow('cat', key, `${c.icon} ${esc(c.ar)}`, c.shots.slice(0, 3).map((s) => s.ar).join(' · '), state.cat === key)).join('');
   } else if (k === 'person') {
     t = 'الشخص في الإعلان';
-    h = Object.entries(PERSON_AR).map(([key, l]) => optRow('person', key, esc(l), key === 'auto' ? 'حسب نوع المنتج' : key === 'none' ? 'لقطات المنتج وحده (أعلى دقة)' : (state.images.model ? 'ستُستخدم صورة المودل' : ''), state.person === key)).join('');
+    h = Object.entries(PERSON_AR).map(([key, l]) => optRow('person', key, esc(l), key === 'auto' ? 'حسب نوع المنتج' : (state.images.model ? 'ستُستخدم صورة المودل' : ''), state.person === key)).join('')
+      + '<p class="text-xs text-slate-500 pt-1">لإعلان بدون أشخاص اختر أسلوب «المنتج فقط».</p>';
   } else if (k === 'aspect') {
     t = 'الأبعاد';
     h = Object.keys(ASPECTS).map((a) => optRow('aspect', a, a, ASPECT_AR[a], state.aspect === a)).join('');
@@ -849,18 +994,35 @@ function renderSheet() {
     t = 'طريقة التوليد في Flow';
     h = optRow('method', 'frames', 'صورة بداية ← Frames to Video', 'الأدق للحفاظ على شكل المنتج: تصنع صورة البداية بـ Nano Banana ثم تحرّكها', state.method === 'frames')
       + optRow('method', 'ingredients', 'مراجع مباشرة ← Ingredients to Video', 'أسرع: ترفع صورة المنتج والمودل كمراجع ويركّب Omni المشهد', state.method === 'ingredients');
+  } else if (k === 'clients') {
+    t = 'عملائي';
+    const list = clients();
+    h = (state.editClient ? clientForm(state.editClient) : `<button type="button" data-cnew="1" class="tap w-full rounded-xl border-2 border-dashed border-blue-500/50 text-blue-200 text-sm font-black">+ عميل جديد</button>`)
+      + optRow('client', '', 'بدون عميل', 'إعلان بدون هوية محددة', !state.clientId)
+      + list.map((c) => `<div class="flex items-center gap-1.5">${optRow('client', c.id, esc(c.name), [c.colors, c.tone, AUDIENCE_AR[c.audience]].filter(Boolean).join(' · '), state.clientId === c.id)}
+          <button type="button" data-cedit="${c.id}" aria-label="تعديل" class="tap w-11 rounded-lg bg-slate-800 flex items-center justify-center flex-shrink-0"><i data-lucide="pencil" class="w-4 h-4"></i></button>
+          <button type="button" data-cdel="${c.id}" aria-label="حذف" class="tap w-11 rounded-lg bg-slate-800 text-rose-300 flex items-center justify-center flex-shrink-0"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div>`).join('');
+  } else if (k === 'products') {
+    t = 'منتجاتي';
+    const list = products();
+    h = list.length ? list.map((p) => `<div class="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/60 p-2">
+        ${p.images && p.images.product ? `<img src="${p.images.product.thumb}" alt="" class="w-12 h-12 rounded-lg object-cover">` : `<span class="w-12 h-12 rounded-lg bg-slate-800 flex items-center justify-center text-xl">${CATS[p.cat] ? CATS[p.cat].icon : '📦'}</span>`}
+        <div class="min-w-0 flex-1"><p class="text-sm font-bold text-white truncate">${esc(p.name)}</p><p class="text-xs text-slate-400 truncate">${esc(p.benefit || '')}${p.clientName ? ' · ' + esc(p.clientName) : ''}</p></div>
+        <button type="button" data-pload="${p.id}" class="tap px-3 rounded-lg bg-emerald-600/20 border border-emerald-500/40 text-emerald-200 text-xs font-bold">استخدام</button>
+        <button type="button" data-pdel="${p.id}" aria-label="حذف" class="tap w-10 rounded-lg bg-slate-800 text-rose-300 flex items-center justify-center"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+      </div>`).join('') : '<p class="text-sm text-slate-400 text-center py-8">بعد صنع البرومبتات اضغط «احفظ المنتج» ليظهر هنا مع صورته وبطاقته.</p>';
   }
   $('sheet-title').textContent = t;
   $('sheet-body').innerHTML = h;
   icons();
 }
 function pick(kind, val) {
+  if (kind === 'client') { state.clientId = val || null; closeSheet(); renderCtx(); renderChips(); saveDraft(); renderMakeBtn(); return; }
   state[kind] = val;
   closeSheet();
   renderChips();
   saveDraft();
-  if (state.result && state.result.source === 'local' && state.tab === 'product') make();
-  else renderMakeBtn();
+  renderMakeBtn();
 }
 
 /* ---------------- Images ---------------- */
@@ -917,32 +1079,45 @@ async function copyText(text, desc) {
   return true;
 }
 function packText(r) {
-  const L = [`OmniFlow — ${r.name}`, `${r.cat === 'idea' ? 'فكرة حرة' : CATS[r.cat].ar} · ${r.aspect} · ${r.method === 'frames' ? 'Frames to Video' : r.method === 'ingredients' ? 'Ingredients to Video' : 'Text to Video'} · Gemini Omni`, ''];
+  const L = [`OmniFlow — ${r.name}${r.client ? ' · ' + r.client : ''}`, `${r.cat === 'idea' ? 'فكرة حرة' : CATS[r.cat].ar + ' · ' + STYLES[r.style].ar} · ${r.aspect} · ${r.method === 'frames' ? 'Frames to Video' : r.method === 'ingredients' ? 'Ingredients to Video' : 'Text to Video'} · Gemini Omni`, ''];
   r.shots.forEach((s, i) => {
     L.push(`===== لقطة ${i + 1}: ${s.ar} =====`);
-    if (s.frame) { L.push('[صورة البداية — Nano Banana]', s.frame, ''); }
+    if (s.frame) L.push('[صورة البداية — Nano Banana]', s.frame, '');
     L.push('[الفيديو — Omni]', s.video, '');
   });
-  L.push('===== تعديلات بعد التوليد =====');
+  L.push('===== تعديلات لمحادثة Omni =====');
   r.edits.forEach((e) => L.push(`• ${e[0]}: ${e[1]}`));
-  if (r.onscreen && r.onscreen.length) { L.push('', '===== نصوص للمونتاج =====', ...r.onscreen.map((t) => '• ' + t)); }
+  if (r.onscreen && r.onscreen.length) L.push('', '===== نصوص للمونتاج =====', ...r.onscreen.map((t) => '• ' + t));
   return L.join('\n');
+}
+function formSnapshot() {
+  return { tab: state.tab, name: $('p-name').value, benefit: $('p-benefit').value, idea: $('i-text').value, cat: state.cat, person: state.person, aspect: state.aspect, method: state.method, style: state.style, clientId: state.clientId, line: $('f-line').value, note: $('f-note').value };
+}
+function applySnapshot(n) {
+  state.tab = n.tab === 'idea' ? 'idea' : 'product';
+  if (n.cat && (n.cat === 'auto' || CATS[n.cat])) state.cat = n.cat;
+  if (PERSON_AR[n.person]) state.person = n.person;
+  if (ASPECTS[n.aspect]) state.aspect = n.aspect;
+  if (METHOD_AR[n.method]) state.method = n.method;
+  if (STYLES[n.style]) state.style = n.style;
+  state.clientId = clients().some((c) => c.id === n.clientId) ? n.clientId : null;
+  $('p-name').value = n.name || ''; $('p-benefit').value = n.benefit || ''; $('i-text').value = n.idea || '';
+  $('f-line').value = n.line || ''; $('f-note').value = n.note || '';
 }
 function saveHistory() {
   const r = state.result;
   if (!r) return;
-  const list = store.get('of4_history', []);
-  const item = { id: Date.now().toString(36), time: Date.now(), result: r, inputs: { tab: state.tab, name: $('p-name').value, benefit: $('p-benefit').value, idea: $('i-text').value, cat: state.cat, person: state.person, aspect: state.aspect, method: state.method } };
-  list.unshift(item);
-  store.set('of4_history', list.slice(0, 40));
+  const list = store.get('of5_history', []);
+  list.unshift({ id: uid(), time: Date.now(), result: r, inputs: formSnapshot() });
+  store.set('of5_history', list.slice(0, 40));
   toast('حُفظ في السجل', r.name);
 }
 function renderHistory() {
-  const list = store.get('of4_history', []);
+  const list = store.get('of5_history', []);
   $('history-list').innerHTML = list.length ? list.map((h) => `
     <div class="rounded-xl border border-slate-800 bg-slate-900/60 p-3 space-y-2">
       <p class="text-sm font-bold text-white">${esc(h.result.name)}</p>
-      <p class="text-xs text-slate-400">${h.result.cat === 'idea' ? 'فكرة حرة' : esc(CATS[h.result.cat].ar)} · ${h.result.shots.length} لقطات · ${new Date(h.time).toLocaleDateString('ar-SA-u-ca-gregory-nu-latn', { month: 'short', day: 'numeric' })}</p>
+      <p class="text-xs text-slate-400">${h.result.cat === 'idea' ? 'فكرة حرة' : esc(CATS[h.result.cat].ar) + ' · ' + esc(STYLES[h.result.style] ? STYLES[h.result.style].ar : '')} · ${h.result.shots.length} لقطات · ${new Date(h.time).toLocaleDateString('ar-SA-u-ca-gregory-nu-latn', { month: 'short', day: 'numeric' })}</p>
       <div class="flex gap-1.5">
         <button type="button" data-hload="${h.id}" class="tap flex-1 rounded-lg bg-emerald-600/20 border border-emerald-500/40 text-emerald-200 text-sm font-bold">فتح</button>
         <button type="button" data-hdel="${h.id}" aria-label="حذف" class="tap w-11 rounded-lg bg-slate-800 text-rose-300 flex items-center justify-center"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
@@ -951,23 +1126,44 @@ function renderHistory() {
   icons();
 }
 function saveDraft() {
-  const d = { tab: state.tab, name: $('p-name').value, benefit: $('p-benefit').value, idea: $('i-text').value, cat: state.cat, person: state.person, aspect: state.aspect, method: state.method, line: $('f-line').value, note: $('f-note').value, images: state.images };
-  if (!store.set('of4_draft', d)) store.set('of4_draft', { ...d, images: { product: null, model: null } });
+  const d = { ...formSnapshot(), images: state.images };
+  if (!store.set('of5_draft', d)) store.set('of5_draft', { ...d, images: { product: null, model: null } });
 }
 function restoreDraft() {
-  const d = store.get('of4_draft', null);
+  const d = store.get('of5_draft', null);
   if (!d) return;
-  state.tab = d.tab === 'idea' ? 'idea' : 'product';
-  if (d.cat && (d.cat === 'auto' || CATS[d.cat])) state.cat = d.cat;
-  if (PERSON_AR[d.person]) state.person = d.person;
-  if (ASPECTS[d.aspect]) state.aspect = d.aspect;
-  if (METHOD_AR[d.method]) state.method = d.method;
-  $('p-name').value = d.name || ''; $('p-benefit').value = d.benefit || ''; $('i-text').value = d.idea || '';
-  $('f-line').value = d.line || ''; $('f-note').value = d.note || '';
+  applySnapshot(d);
   if (d.images) state.images = { product: d.images.product || null, model: d.images.model || null };
 }
+function saveProduct() {
+  const r = state.result;
+  if (!r || r.cat === 'idea') return;
+  const list = products().filter((p) => p.name !== $('p-name').value.trim());
+  const c = activeClient();
+  const item = { id: uid(), name: $('p-name').value.trim(), benefit: $('p-benefit').value.trim(), cat: r.cat, card: r.card, clientId: state.clientId, clientName: c ? c.name : '', images: state.images };
+  list.unshift(item);
+  if (!store.set('of5_products', list.slice(0, 30))) {
+    item.images = { product: state.images.product ? { thumb: state.images.product.thumb, img: state.images.product.thumb } : null, model: null };
+    if (!store.set('of5_products', list.slice(0, 30))) { toast('تعذّر الحفظ', 'مساحة المتصفح ممتلئة.', true); return; }
+  }
+  renderCtx();
+  toast('حُفظ في منتجاتي', item.name);
+}
+function loadProduct(id) {
+  const p = products().find((x) => x.id === id);
+  if (!p) return;
+  state.tab = 'product';
+  $('p-name').value = p.name; $('p-benefit').value = p.benefit || '';
+  state.cat = p.cat && CATS[p.cat] ? p.cat : 'auto';
+  if (p.clientId && clients().some((c) => c.id === p.clientId)) state.clientId = p.clientId;
+  state.images = { product: p.images ? p.images.product : null, model: p.images ? p.images.model : null };
+  closeSheet();
+  renderAllForm(); saveDraft();
+  toast('تم الاستدعاء', 'اختر الأسلوب واضغط «اصنع البرومبتات».');
+}
+function renderAllForm() { renderTab(); renderCtx(); renderStyles(); renderTiles(); renderChips(); }
 
-const QUICK = [['🍩', 'دونات بالشوكولاتة', 'طازجة كل صباح'], ['🖤', 'عطر عود ملكي', 'ثبات يدوم طول اليوم'], ['💍', 'خاتم ذهب بفص ألماس', 'هدية تليق بها'], ['🛰️', 'أرض سكنية شمال الرياض', 'موقع قريب من الخدمات'], ['🕌', 'مبخرة نحاسية فاخرة', 'ضيافة تليق بمجلسك'], ['🥛', 'حليب طازج كامل الدسم', 'غني بالكالسيوم']];
+const QUICK = [['🍩', 'دونات بالشوكولاتة', 'طازجة كل صباح'], ['🖤', 'عطر عود ملكي', 'ثبات يدوم طول اليوم'], ['💍', 'خاتم ذهب بفص ألماس', 'هدية تليق بها'], ['🛰️', 'أرض سكنية شمال الرياض', 'موقع قريب من الخدمات'], ['🕌', 'مبخرة نحاسية فاخرة', 'ضيافة تليق بمجلسك'], ['🔧', 'مفك براغي كهربائي', 'يخلص الشغل بدقيقة']];
 
 /* ---------------- Events ---------------- */
 document.addEventListener('DOMContentLoaded', () => {
@@ -975,20 +1171,21 @@ document.addEventListener('DOMContentLoaded', () => {
   restoreDraft();
   $('s-key').value = store.get('of_key', '');
   $('s-model').value = store.get('of_model', 'gemini-2.5-flash');
-  renderTab(); renderTiles(); renderChips(); renderResult();
+  renderAllForm(); renderResult();
 
   document.body.addEventListener('click', (ev) => {
     const t = ev.target.closest('button, [data-close]');
     if (!t) return;
     const d = t.dataset;
     if (d.tab) { state.tab = d.tab; renderTab(); saveDraft(); }
+    else if (d.style) { state.style = d.style; renderStyles(); renderChips(); saveDraft(); renderMakeBtn(); }
     else if (d.sheet) openSheet(d.sheet);
     else if (d.pick) pick(d.pick, d.val);
     else if (d.close) { if (d.close === 'sheet') closeSheet(); else $(d.close).classList.add('hidden'); }
     else if (d.open === 'settings') $('settings').classList.remove('hidden');
     else if (d.upload) { state.uploadSlot = d.upload; $('file-input').click(); }
     else if (d.remove) { state.images[d.remove] = null; renderTiles(); saveDraft(); renderMakeBtn(); }
-    else if (d.quick) { const q = QUICK[+d.quick]; state.tab = 'product'; state.cat = 'auto'; $('p-name').value = q[1]; $('p-benefit').value = q[2]; renderTab(); renderChips(); saveDraft(); make(); }
+    else if (d.quick) { const q = QUICK[+d.quick]; state.tab = 'product'; state.cat = 'auto'; $('p-name').value = q[1]; $('p-benefit').value = q[2]; renderAllForm(); saveDraft(); make(); }
     else if (d.copy) {
       const r = state.result; if (!r) return;
       const kind = d.copy[0], i = +d.copy.slice(1);
@@ -996,30 +1193,58 @@ document.addEventListener('DOMContentLoaded', () => {
       else if (kind === 'v') copyText(r.shots[i].video, `لقطة ${i + 1}: الصقه في Omni`);
       else if (kind === 'e') copyText(r.edits[i][1], 'الصقه في محادثة Omni');
     }
-    else if (d.hload) {
-      const h = store.get('of4_history', []).find((x) => x.id === d.hload);
-      if (h) {
-        const n = h.inputs || {};
-        state.tab = n.tab || 'product'; state.cat = n.cat || 'auto'; state.person = n.person || 'auto'; state.aspect = n.aspect || '9:16'; state.method = n.method || 'frames';
-        $('p-name').value = n.name || ''; $('p-benefit').value = n.benefit || ''; $('i-text').value = n.idea || '';
-        state.result = h.result; state.resultKey = inputKey();
-        renderTab(); renderChips(); renderResult(); saveDraft();
-        $('history').classList.add('hidden');
-      }
+    else if (d.win) {
+      const r = state.result, i = +d.win;
+      r.feedback[i] = 'win';
+      const list = wins().filter((w) => w.video !== r.shots[i].video);
+      list.unshift({ cat: r.cat, style: r.style, ar: r.shots[i].ar, video: r.shots[i].video, time: Date.now() });
+      store.set('of5_wins', list.slice(0, 30));
+      state.failOpen = null;
+      renderResult();
+      toast('رائع! حُفظت اللقطة', store.get('of_key', '') ? 'Gemini سيتعلم منها في الإعلانات الجاية.' : 'فعّل Gemini ليتعلم من لقطاتك الناجحة.');
     }
-    else if (d.hdel) { store.set('of4_history', store.get('of4_history', []).filter((x) => x.id !== d.hdel)); renderHistory(); }
+    else if (d.fail) { state.failOpen = state.failOpen === +d.fail ? null : +d.fail; renderResult(); }
+    else if (d.fix) { const [i, k] = d.fix.split(':'); const f = FAIL_REASONS.find((x) => x[0] === k); if (f) copyText(f[2], `تعديل لقطة ${+i + 1}: الصقه في محادثة Omni`); }
+    else if (d.remake) {
+      const r = state.result; if (!r || !r.card) return;
+      const card = { ...r.card, open: true };
+      document.querySelectorAll('[data-card]').forEach((inp) => { if (inp.value !== (card[inp.dataset.card] || '')) { if (inp.dataset.card === 'who_ar') card.whoEdited = true; card[inp.dataset.card] = inp.value.trim(); } });
+      make(card);
+    }
+    else if (d.saveprod) saveProduct();
+    else if (d.cnew) { state.editClient = { audience: 'saudi' }; renderSheet(); }
+    else if (d.cedit) { state.editClient = clients().find((c) => c.id === d.cedit) || null; renderSheet(); }
+    else if (d.ccancel) { state.editClient = null; renderSheet(); }
+    else if (d.csave !== undefined) {
+      const name = $('c-name').value.trim();
+      if (!name) { toast('اكتب اسم البراند', '', true); return; }
+      const c = { id: d.csave || uid(), name, colors: $('c-colors').value.trim(), tone: $('c-tone').value.trim(), audience: $('c-aud').value, notes: $('c-notes').value.trim() };
+      store.set('of5_clients', [c].concat(clients().filter((x) => x.id !== c.id)));
+      state.clientId = c.id; state.editClient = null;
+      renderSheet(); renderCtx(); renderChips(); saveDraft(); renderMakeBtn();
+      toast('حُفظ العميل', 'كل البرومبتات الجاية ستلتزم بهويته.');
+    }
+    else if (d.cdel) { store.set('of5_clients', clients().filter((x) => x.id !== d.cdel)); if (state.clientId === d.cdel) state.clientId = null; renderSheet(); renderCtx(); saveDraft(); }
+    else if (d.pload) loadProduct(d.pload);
+    else if (d.pdel) { store.set('of5_products', products().filter((x) => x.id !== d.pdel)); renderSheet(); renderCtx(); }
+    else if (d.hload) {
+      const h = store.get('of5_history', []).find((x) => x.id === d.hload);
+      if (h) { applySnapshot(h.inputs || {}); state.result = h.result; state.resultKey = inputKey(); renderAllForm(); renderResult(); saveDraft(); $('history').classList.add('hidden'); }
+    }
+    else if (d.hdel) { store.set('of5_history', store.get('of5_history', []).filter((x) => x.id !== d.hdel)); renderHistory(); }
   });
 
-  $('btn-make').addEventListener('click', make);
+  $('btn-make').addEventListener('click', () => make());
   $('file-input').addEventListener('change', onFile);
-  ['p-name', 'p-benefit', 'i-text', 'f-line', 'f-note'].forEach((id) => $(id).addEventListener('input', () => { if (id !== 'i-text' && id !== 'f-line' && id !== 'f-note') renderChips(); saveDraft(); renderMakeBtn(); }));
+  ['p-name', 'p-benefit'].forEach((id) => $(id).addEventListener('input', () => { renderChips(); saveDraft(); renderMakeBtn(); }));
+  ['i-text', 'f-line', 'f-note'].forEach((id) => $(id).addEventListener('input', () => { saveDraft(); renderMakeBtn(); }));
   ['f-dialect', 'f-music'].forEach((id) => $(id).addEventListener('change', () => { saveDraft(); renderMakeBtn(); }));
   $('f-line').addEventListener('input', () => $('line-warn').classList.toggle('hidden', words($('f-line').value) <= 15));
-  $('p-name').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); make(); } });
-  $('p-benefit').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); make(); } });
+  ['p-name', 'p-benefit'].forEach((id) => $(id).addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); make(); } }));
   $('btn-copy-all').addEventListener('click', async () => { if (state.result && await copyText(packText(state.result), 'كل اللقطات والتعديلات')) { $('copy-all-label').textContent = '✓ تم النسخ'; setTimeout(() => { $('copy-all-label').textContent = 'نسخ الكل'; }, 1500); } });
   $('btn-save').addEventListener('click', saveHistory);
   $('btn-history').addEventListener('click', () => { renderHistory(); $('history').classList.remove('hidden'); });
+  $('btn-clients').addEventListener('click', () => openSheet('clients'));
   $('btn-settings').addEventListener('click', () => $('settings').classList.remove('hidden'));
   $('s-key').addEventListener('input', () => { store.set('of_key', $('s-key').value.trim()); renderMakeBtn(); });
   $('s-model').addEventListener('input', () => store.set('of_model', $('s-model').value.trim() || 'gemini-2.5-flash'));
