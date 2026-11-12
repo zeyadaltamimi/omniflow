@@ -438,7 +438,7 @@
 
 <script>
 /* =========================================================
-   OmniFlow Prompt Studio v3.4
+   OmniFlow Prompt Studio v3.5
    Pipeline: Arabic idea → brief (local or Gemini) → engine-specific prompt
    ========================================================= */
 
@@ -1001,12 +1001,15 @@ function compose() {
   let creative = '';
   if (T) {
     const ideaEn = $('idea').value.trim() ? b.beats.map((x) => x.en).filter(Boolean).join('; ') : '';
-    if (!R.hasChar) charLine = T.person === 'none' ? (tf['f-bible'] || '') : `the model — ${tf['f-bible'] || T.defaultChar}`;
+    const N = tplNames(T);
+    if (R.hasChar) charLine = charLine.replace(R.C, N.C);
+    else charLine = T.person === 'none' ? (tf['f-bible'] || '') : `${N.C} — ${tf['f-bible'] || T.defaultChar}`;
+    if (R.hasProd) productLine = productLine.replace(R.P, N.P);
     if (!R.hasProd) {
       const name = $('p-name').value.trim();
       const mat = tf['p-material'] ? `in ${tf['p-material']}` : '';
-      const what = ideaEn ? 'as described in the creative direction' : ($('p-container').value || (T.defaultProduct !== 'the product' ? T.defaultProduct : ''));
-      productLine = (name || what || mat) ? ['the product —', name ? `"${name}"` : '', what, mat].filter(Boolean).join(' ') : '';
+      const what = ideaEn ? 'as described in the creative direction' : ($('p-container').value || (T.defaultProduct && T.defaultProduct !== 'the product' ? T.defaultProduct : ''));
+      productLine = (name || what || mat) ? [`${N.P} —`, name ? `"${name}"` : '', what, mat].filter(Boolean).join(' ') : '';
     }
     if (!R.hasStyle) setting = T.setting;
     if (ideaEn) creative = `Creative direction: ${ideaEn}.`;
@@ -1017,9 +1020,11 @@ function compose() {
   if (mode === 'arabic' && method === 'frame') refLine = `Using the provided start frame that contains the Arabic calligraphy "${phrase}": keep every letter, dot and stroke exactly as in the image; animate only light, particles and camera.`;
   else if (R.order.length) {
     const keep = [];
-    if (R.charImg) keep.push(`keep the character identical to Image ${R.charIdx} (face, hair, outfit, colors)`);
-    if (R.prodImg) keep.push(`keep the product identical to Image ${R.prodIdx} (shape, colors, materials, logo, label text)`);
-    refLine = `Reference images in upload order: ${R.order.map((o) => `Image ${o.idx} = ${o.en}`).join('; ')}.` + (keep.length ? ` In every frame, ${keep.join(' and ')}.` : '');
+    const cn = T ? (T.cNoun || 'the model') : 'the character';
+    const pn = T ? (T.pNoun || 'the product') : 'the product';
+    if (R.charImg) keep.push(`keep ${cn} identical to Image ${R.charIdx} (face, hair, outfit, colors)`);
+    if (R.prodImg) keep.push(`keep ${pn} identical to Image ${R.prodIdx} (${pn === 'the product' ? 'shape, colors, materials, logo, label text' : 'shape, colors, materials and details'})`);
+    refLine = `Reference images in upload order: ${R.order.map((o) => `Image ${o.idx} = ${o.slot === 'character' ? cn : o.slot === 'product' ? pn : o.en}`).join('; ')}.` + (keep.length ? ` In every frame, ${keep.join(' and ')}.` : '');
   }
 
   // Style & lighting
@@ -1047,7 +1052,7 @@ function compose() {
 
   const consistency = mode === 'arabic'
     ? 'Consistency: smooth continuous motion, clean frame without captions or overlay text.'
-    : 'Consistency: ' + [charLine ? 'identical characters, wardrobe and lighting across all shots; anatomically natural hands' : '', productLine ? 'the product keeps the same shape, colors and label in every shot' : '', !charLine && !productLine ? 'consistent look and lighting across all shots' : ''].filter(Boolean).join('; ') + '; clean frame without captions or overlay text.';
+    : 'Consistency: ' + [charLine ? 'identical characters, wardrobe and lighting across all shots; anatomically natural hands' : '', productLine ? (T && T.pNoun && T.pNoun !== 'the product' ? `${T.pNoun} keeps the same look and details in every shot` : 'the product keeps the same shape, colors and label in every shot') : '', !charLine && !productLine ? 'consistent look and lighting across all shots' : ''].filter(Boolean).join('; ') + '; clean frame without captions or overlay text.';
 
   const negative = negativeList(mode, method);
   if (mode === 'product' && charLine && !negative.includes('morphing wardrobe')) negative.push('morphing wardrobe');
@@ -2287,15 +2292,363 @@ const TEMPLATES = [
 ];
 const TPL_CATS = { all: 'الكل', fav: '⭐ المفضلة', perfume: 'عطور', jewelry: 'مجوهرات', food: 'أكل', drink: 'مشروبات', skincare: 'عناية', apparel: 'أزياء', electronics: 'إلكترونيات', deodorant: 'مزيل عرق', other: 'عام' };
 Object.assign(state, { template: null, tplFilter: 'all' });
+TEMPLATES.push(
+  /* ---------- Misbaha ---------- */
+  {
+    id: 'misbaha-macro', cat: 'misbaha', icon: '📿', name: 'هيبة السبحة',
+    desc: 'ضوء يعبر حبات السبحة، الحبات تنزلق بصوت طقطقة، الشرابة تتمايل، ولقطة بطل على حامل خشبي.',
+    person: 'none', pNoun: 'the misbaha prayer beads',
+    defaultProduct: 'a 33-bead misbaha of polished amber beads with a silver separator and a silk tassel',
+    setting: 'a dark walnut desk beside a window, with an old leather-bound book and soft dust in the air',
+    style: 'luxury heritage product commercial, photorealistic, rich warm tones, ultra-sharp macro detail',
+    lighting: 'a single soft window light from the side, glowing through translucent beads',
+    mood: 'calm, dignified, timeless',
+    sfx: ['soft rhythmic bead clicks', 'a faint silk tassel rustle'],
+    ambient: 'quiet study room tone',
+    beats: [
+      { ar: 'ضوء يعبر داخل الحبات', shot: 'Extreme macro, 100mm macro lens, slow slide', en: 'Warm light passes through the beads of {P}, revealing their inner grain and depth' },
+      { ar: 'الحبات تنزلق واحدة تلو الأخرى', shot: 'Macro close-up, shallow depth of field', en: 'The beads of {P} slide one by one along the string, each landing with a soft click' },
+      { ar: 'الشرابة تتمايل بالحركة البطيئة', shot: 'Close-up, high-speed slow motion', en: 'The silk tassel of {P} sways gently, catching the light' },
+      { ar: 'السبحة على حامل خشبي', shot: 'Locked-off hero shot, centered', en: '{P} rests draped over a hand-carved wooden stand, every bead in sharp focus; the frame holds with clean space above for a title' }
+    ]
+  },
+  {
+    id: 'misbaha-hand', cat: 'misbaha', icon: '🤲', name: 'بين الأصابع في المجلس',
+    desc: 'يد تمرر الحبات بهدوء، ماكرو للحبات، رجل جالس في مجلس، ثم السبحة بجانب الدلة.',
+    person: 'optional', cNoun: 'the man', pNoun: 'the misbaha prayer beads',
+    defaultChar: 'a dignified Saudi man in his fifties with a grey beard, wearing a white thobe and a brown bisht',
+    defaultProduct: 'a 33-bead misbaha of polished dark beads with a silver separator and a silk tassel',
+    setting: 'a traditional Najdi majlis with red Sadu cushions, carved wood and a brass dallah on glowing embers',
+    style: 'heritage lifestyle commercial, photorealistic, warm cinematic grade',
+    lighting: 'warm late-afternoon light through a window with soft haze',
+    mood: 'serene, wise, traditional',
+    sfx: ['soft bead clicks', 'coffee pouring in the background'],
+    ambient: 'quiet majlis room tone with crackling embers',
+    beats: [
+      { ar: 'يد تمرر الحبات بهدوء', shot: 'Close-up on the hands, shallow depth of field', en: 'The hands of {C} slowly pass the beads of {P}, one at a time' },
+      { ar: 'ماكرو للحبات في الضوء', shot: 'Extreme macro, 100mm macro lens', en: 'Macro on the beads of {P} as they turn, catching the warm light' },
+      { ar: 'الرجل جالس في المجلس', shot: 'Medium shot, 50mm lens, slow push-in', en: '{C} sits calmly in the majlis, {P} in hand, a quiet smile' },
+      { ar: 'السبحة بجانب الدلة', shot: 'Hero close-up, rack focus', en: '{P} rests on a carved wooden tray beside the brass dallah, in sharp focus; the frame holds' }
+    ]
+  },
+  /* ---------- Juices ---------- */
+  {
+    id: 'juice-fresh', cat: 'juice', icon: '🍊', name: 'طازج من البستان',
+    desc: 'الفواكه تسقط في الماء، تقطيع بقطرات العصير، سكب في كأس بثلج، ولقطة بطل للعبوة.',
+    person: 'none', pNoun: 'the juice',
+    defaultProduct: 'a bottle of fresh orange juice with condensation droplets',
+    setting: 'a bright set with a soft gradient backdrop in fresh fruit colors',
+    style: 'fresh beverage commercial, photorealistic, vibrant and juicy',
+    lighting: 'bright backlight glowing through the juice with crisp highlights',
+    mood: 'fresh, natural, energizing',
+    sfx: ['fruit splashing into water', 'a knife slicing fruit', 'juice pouring over ice'],
+    ambient: 'light airy whoosh',
+    beats: [
+      { ar: 'الفواكه تسقط في الماء', shot: 'High-speed slow motion, eye level', en: 'Fresh whole fruits drop into clear water, bubbles and splashes frozen in the light' },
+      { ar: 'تقطيع الفاكهة وقطرات العصير', shot: 'Extreme macro, slow motion', en: 'A knife slices through a ripe fruit, juice droplets bursting outward' },
+      { ar: 'سكب العصير في كأس ثلج', shot: 'Close-up, slow motion', en: '{P} pours into a glass full of ice, swirling and glowing' },
+      { ar: 'العبوة بين الفواكه', shot: 'Hero shot, slow push-in', en: '{P} stands surrounded by fresh fruit halves, droplets glistening; the frame holds with clean space for a title' }
+    ]
+  },
+  {
+    id: 'juice-summer', cat: 'juice', icon: '☀️', name: 'انتعاش الصيف',
+    desc: 'شخص تحت شمس قوية، يفتح العصير ويشرب، رذاذ فواكه حوله، ثم ابتسامة منتعشة.',
+    person: 'optional', cNoun: 'the young man', pNoun: 'the juice',
+    defaultChar: 'a young Saudi man in his twenties in a light casual shirt and sunglasses',
+    defaultProduct: 'an ice-cold bottle of mixed-fruit juice',
+    setting: 'a sunny outdoor street with palm trees and heat shimmer',
+    style: 'summer refreshment commercial, photorealistic, warm and vibrant',
+    lighting: 'strong midday sunlight with bright highlights',
+    mood: 'hot, then instantly refreshed',
+    sfx: ['a cap twisting open', 'a refreshing gulp', 'ice cracking'],
+    ambient: 'distant summer street ambience',
+    beats: [
+      { ar: 'حر الشمس والتعب', shot: 'Medium shot, heat shimmer, 50mm lens', en: '{C} squints in the hot sun and wipes the forehead' },
+      { ar: 'يفتح العصير', shot: 'Close-up, slow motion', en: '{C} twists open {P}, cold mist escaping from the neck of the bottle' },
+      { ar: 'يشرب ورذاذ فواكه حوله', shot: 'Medium close-up, high-speed slow motion', en: '{C} takes a long sip as splashes of juice and fruit pieces burst around in slow motion' },
+      { ar: 'ابتسامة منتعشة ولقطة العبوة', shot: 'Medium shot, slow push-in', en: '{C} smiles, refreshed, holding {P} toward the camera; the frame holds' }
+    ]
+  },
+  /* ---------- Milk ---------- */
+  {
+    id: 'milk-splash', cat: 'milk', icon: '🥛', name: 'رشّة الحليب',
+    desc: 'تاج حليب بالحركة البطيئة، سكب يكوّن دوامة، العبوة في صباح ريفي، ولقطة بطل.',
+    person: 'none', pNoun: 'the milk',
+    defaultProduct: 'a bottle of fresh full-cream milk',
+    setting: 'a clean bright kitchen counter with soft morning light and green fields visible through the window',
+    style: 'fresh dairy commercial, photorealistic, clean whites and soft pastel tones',
+    lighting: 'soft bright morning light with gentle highlights',
+    mood: 'pure, fresh, wholesome',
+    sfx: ['a milk droplet splash', 'milk pouring into a glass'],
+    ambient: 'soft morning birdsong',
+    beats: [
+      { ar: 'تاج حليب بالحركة البطيئة', shot: 'Extreme macro, high-speed slow motion', en: 'A single drop falls into {P}, forming a perfect milk crown splash' },
+      { ar: 'سكب يكوّن دوامة', shot: 'Close-up, slow motion', en: '{P} pours into a clear glass, forming a smooth creamy swirl' },
+      { ar: 'العبوة في صباح ريفي', shot: 'Medium shot, slow dolly-in', en: '{P} stands on the counter with fresh droplets, green fields softly blurred behind' },
+      { ar: 'لقطة البطل', shot: 'Hero shot, slow push-in', en: '{P} and a full glass stand side by side in clean morning light; the frame holds with space for a title' }
+    ]
+  },
+  {
+    id: 'milk-breakfast', cat: 'milk', icon: '🍳', name: 'فطور العائلة',
+    desc: 'صباح عائلي دافئ، سكب الحليب في الأكواب، ضحكة على الطاولة، ثم العبوة في المنتصف.',
+    person: 'optional', cNoun: 'the family', pNoun: 'the milk',
+    defaultChar: 'a warm Saudi family of four in casual home clothes',
+    defaultProduct: 'a bottle of fresh milk',
+    setting: 'a bright modern Saudi home kitchen with a breakfast table',
+    style: 'family lifestyle commercial, photorealistic, warm and natural',
+    lighting: 'soft morning sunlight streaming through large windows',
+    mood: 'warm, caring, joyful',
+    sfx: ['milk pouring', 'light cups clinking', 'soft laughter'],
+    ambient: 'gentle morning home ambience',
+    beats: [
+      { ar: 'صباح عائلي دافئ', shot: 'Wide shot, slow dolly-in, 35mm lens', en: '{C} gathers around the breakfast table in warm morning light' },
+      { ar: 'سكب الحليب في الأكواب', shot: 'Close-up on the hands, shallow depth of field', en: '{P} is poured into cups, creamy and fresh' },
+      { ar: 'ضحكة على الطاولة', shot: 'Medium shot, 50mm lens', en: '{C} share a laugh while drinking, natural and relaxed' },
+      { ar: 'العبوة في منتصف الطاولة', shot: 'Hero close-up, rack focus', en: '{P} stands in the center of the table in sharp focus while {C} enjoy breakfast softly behind; the frame holds' }
+    ]
+  },
+  /* ---------- Restaurants ---------- */
+  {
+    id: 'rest-signature', cat: 'restaurant', icon: '🔥', name: 'طبق البطل',
+    desc: 'لهب وشواء، الشيف يرتّب الطبق ويضع الصوص، بخار يتصاعد، ولقطة بطل على الطاولة.',
+    person: 'none', pNoun: 'the signature dish',
+    defaultProduct: 'a grilled signature dish beautifully plated',
+    setting: 'a modern restaurant with an open kitchen and warm evening ambience',
+    style: 'premium restaurant food commercial, photorealistic, mouth-watering detail',
+    lighting: 'warm dramatic kitchen light with glowing flames and soft bokeh',
+    mood: 'appetizing, premium, inviting',
+    sfx: ['a loud grill sizzle', 'a flame whoosh', 'a sauce drizzle', 'a plate set on wood'],
+    ambient: 'busy kitchen ambience',
+    beats: [
+      { ar: 'لهب وشواء', shot: 'Extreme close-up, high-speed slow motion', en: 'Flames flare up around the meat on the grill, juices sizzling' },
+      { ar: 'ترتيب الطبق والصوص', shot: 'Top-down close-up', en: 'Hands plate {P} with precision, a glossy sauce drizzled across it' },
+      { ar: 'بخار يتصاعد من الطبق', shot: 'Close-up, slow push-in, backlit', en: 'Steam rises from {P}, backlit against the warm restaurant light' },
+      { ar: 'الطبق على الطاولة', shot: 'Hero shot at table height, slow orbit', en: '{P} sits on a wooden table with restaurant bokeh behind; the frame holds with clean space for a title' }
+    ]
+  },
+  {
+    id: 'rest-ambience', cat: 'restaurant', icon: '🍽️', name: 'أجواء المطعم',
+    desc: 'دخول للمطعم الدافئ، النادل يقدّم الأطباق، الضيوف يتذوقون ويضحكون، ثم لقطة علوية للسفرة.',
+    person: 'optional', cNoun: 'the guests', pNoun: 'the restaurant',
+    defaultChar: 'a group of Saudi friends in their thirties, smartly dressed',
+    defaultProduct: 'a warm, modern restaurant with wooden tables and pendant lights',
+    setting: 'a cozy modern restaurant in the evening with warm pendant lights',
+    style: 'restaurant lifestyle commercial, photorealistic, warm cinematic grade',
+    lighting: 'warm pendant lights with soft golden bokeh',
+    mood: 'welcoming, lively, delicious',
+    sfx: ['a door chime', 'plates set on tables', 'friends laughing'],
+    ambient: 'lively restaurant chatter',
+    beats: [
+      { ar: 'الدخول لأجواء المطعم', shot: 'Smooth Steadicam walk-in, wide, 24mm lens', en: 'The camera glides through the entrance into {P}, warm light and full tables revealed' },
+      { ar: 'النادل يقدّم الأطباق', shot: 'Medium tracking shot', en: 'A waiter places steaming dishes on the table in front of {C}' },
+      { ar: 'الضيوف يتذوقون ويضحكون', shot: 'Medium close-up, 50mm lens', en: '{C} taste the food, exchange looks and laugh together' },
+      { ar: 'لقطة علوية للسفرة', shot: 'Top-down shot, slow rotation', en: 'A full table spread of dishes seen from above as hands reach in; the frame holds' }
+    ]
+  },
+  {
+    id: 'rest-kitchen', cat: 'restaurant', icon: '👨‍🍳', name: 'من المطبخ للطاولة',
+    desc: 'الشيف يقلّب المكونات بلهب، تقطيع ماكرو، ترتيب الطبق، ثم يُقدّم على الطاولة.',
+    person: 'optional', cNoun: 'the chef', pNoun: 'the dish',
+    defaultChar: 'a skilled chef in a crisp black chef jacket',
+    defaultProduct: 'a freshly cooked dish',
+    setting: 'a professional open kitchen with stainless steel and warm lighting',
+    style: 'chef-driven food commercial, photorealistic, dynamic and appetizing',
+    lighting: 'warm kitchen light with flame highlights',
+    mood: 'skillful, passionate, fresh',
+    sfx: ['a pan flame whoosh', 'a knife chopping rhythmically', 'a plate sliding onto a counter'],
+    ambient: 'professional kitchen ambience',
+    beats: [
+      { ar: 'الشيف يقلّب المكونات بلهب', shot: 'Medium shot, slow motion', en: '{C} tosses fresh ingredients in a flaming pan' },
+      { ar: 'تقطيع ماكرو', shot: 'Extreme close-up, 100mm macro lens', en: 'A sharp knife chops fresh herbs in a fast rhythm' },
+      { ar: 'ترتيب الطبق', shot: 'Top-down close-up', en: '{C} plates {P} carefully, adding the final garnish' },
+      { ar: 'التقديم على الطاولة', shot: 'Tracking shot ending in a hero close-up', en: '{P} is placed on a table in the dining room, steam rising; the frame holds' }
+    ]
+  },
+  /* ---------- Gyms & clubs ---------- */
+  {
+    id: 'gym-energy', cat: 'gym', icon: '🏋️', name: 'طاقة النادي',
+    desc: 'أضواء النادي تشتغل صفاً صفاً، رفع أوزان بغبار الطباشير، جولة سريعة، ثم وقفة ثقة.',
+    person: 'optional', cNoun: 'the athlete', pNoun: 'the gym',
+    defaultChar: 'a fit Saudi man in his late twenties in black training wear',
+    defaultProduct: 'a modern premium gym with dark tones and rows of equipment',
+    setting: 'a modern premium gym with dark tones, rows of equipment and LED strips',
+    style: 'high-energy fitness commercial, photorealistic, punchy contrast',
+    lighting: 'dramatic overhead lights with bright rim light and a light haze',
+    mood: 'powerful, motivating, intense',
+    sfx: ['heavy light switches clunking on', 'weights clanking', 'a powerful exhale'],
+    ambient: 'deep gym room tone',
+    beats: [
+      { ar: 'الأضواء تشتغل صفاً صفاً', shot: 'Wide symmetrical shot, locked', en: 'The lights of {P} switch on row by row, revealing the equipment through a light haze' },
+      { ar: 'رفع أوزان وغبار الطباشير', shot: 'Low angle, high-speed slow motion', en: '{C} lifts a heavy barbell, chalk dust bursting from the hands' },
+      { ar: 'جولة سريعة بين الأجهزة', shot: 'Fast tracking shot, motion blur', en: 'A fast glide through {P}: treadmills, racks and training zones' },
+      { ar: 'وقفة ثقة في المنتصف', shot: 'Medium wide shot, slow push-in', en: '{C} stands confidently in the center of {P}; the frame holds with clean space for a logo' }
+    ]
+  },
+  {
+    id: 'club-tour', cat: 'gym', icon: '🎥', name: 'جولة في النادي',
+    desc: 'لقطة طائرة واحدة تمر بالاستقبال، صالة الأجهزة، المسبح أو الاستوديو، وتنتهي عند المدخل.',
+    person: 'none', pNoun: 'the club',
+    defaultProduct: 'a modern sports club with a reception, training floor and pool',
+    setting: 'a modern sports club with clean architecture',
+    style: 'real-estate style walkthrough, photorealistic, smooth and premium',
+    lighting: 'bright clean interior lighting with natural daylight',
+    mood: 'premium, spacious, inviting',
+    sfx: ['a smooth airy whoosh between spaces', 'distant water splashes'],
+    ambient: 'calm club ambience',
+    beats: [
+      { ar: 'دخول من الاستقبال', shot: 'Smooth FPV drone glide at chest height', en: 'The camera glides past the sleek reception of {P}' },
+      { ar: 'صالة الأجهزة', shot: 'Continuous FPV glide', en: 'It flows through the training floor between rows of modern equipment' },
+      { ar: 'المسبح أو الاستوديو', shot: 'Continuous FPV glide, rising slightly', en: 'It continues into a bright pool hall or studio with natural light' },
+      { ar: 'نهاية عند المدخل', shot: 'Slow pull-back to a wide shot', en: 'The camera ends facing the main entrance of {P}; the frame holds with clean space for a logo' }
+    ]
+  },
+  /* ---------- Land & real estate ---------- */
+  {
+    id: 'land-drone', cat: 'realestate', icon: '🛰️', name: 'كشف الأرض من الدرون',
+    desc: 'لقطة جوية عالية وقت الغروب، الدرون ينزل نحو الأرض بحدود مضيئة، مرور منخفض، ثم لقطة علوية.',
+    person: 'none', pNoun: 'the land plot',
+    defaultProduct: 'an empty land plot on the edge of a growing Saudi city',
+    setting: 'the edge of a growing Saudi city with new roads and neighborhoods',
+    style: 'premium real-estate aerial commercial, photorealistic, cinematic drone cinematography',
+    lighting: 'golden-hour sunlight with long soft shadows',
+    mood: 'opportunity, growth, confidence',
+    sfx: ['a soft wind rush', 'a gentle deep whoosh'],
+    ambient: 'high-altitude wind',
+    beats: [
+      { ar: 'لقطة جوية عالية للمدينة', shot: 'High aerial establishing shot, slow forward drift', en: 'A wide aerial view of the city edge at golden hour, roads and neighborhoods stretching out' },
+      { ar: 'الدرون ينزل نحو الأرض', shot: 'Aerial descending shot', en: 'The drone descends toward {P}; thin glowing boundary lines trace its edges on the ground' },
+      { ar: 'مرور منخفض فوق الأرض', shot: 'Low-altitude drone glide', en: 'A low glide across {P}, showing the access road and the surroundings' },
+      { ar: 'لقطة علوية بمساحة للنص', shot: 'Top-down aerial, locked', en: 'A top-down view of {P} with its glowing outline; the frame holds with clean space for price and location text' }
+    ]
+  },
+  {
+    id: 'land-vision', cat: 'realestate', icon: '🏗️', name: 'من أرض إلى حلم',
+    desc: 'الأرض فارغة، ثم تظهر عليها فيلا شفافة ثلاثية الأبعاد، يتحول النهار لمساء وتضيء الأنوار.',
+    person: 'none', pNoun: 'the land plot',
+    defaultProduct: 'an empty residential land plot',
+    setting: 'a quiet residential neighborhood with wide streets',
+    style: 'architectural visualization commercial, photorealistic, elegant',
+    lighting: 'daylight shifting into a warm dusk',
+    mood: 'aspirational, hopeful, premium',
+    sfx: ['a soft magical shimmer', 'a deep whoosh'],
+    ambient: 'calm neighborhood evening',
+    beats: [
+      { ar: 'الأرض فارغة', shot: 'Slow aerial orbit, wide', en: '{P} sits empty in daylight' },
+      { ar: 'تظهر فيلا شفافة ثلاثية الأبعاد', shot: 'Continuous slow orbit', en: 'A translucent glowing 3D outline of a modern villa rises from the ground of {P}' },
+      { ar: 'التصميم يكتمل', shot: 'Slow push-in', en: 'The outline fills in with realistic materials: stone, glass and landscaping' },
+      { ar: 'المساء وإضاءة الفيلا', shot: 'Wide hero shot, locked', en: 'Day turns to warm dusk and the villa lights glow on {P}; the frame holds with clean space for a title' }
+    ]
+  },
+  {
+    id: 'land-location', cat: 'realestate', icon: '📍', name: 'الموقع والقرب',
+    desc: 'تبدأ من الأرض وترتفع لتكشف الطرق والخدمات حولها، ثم تعود للأرض بلقطة ختامية.',
+    person: 'none', pNoun: 'the land plot',
+    defaultProduct: 'a land plot near main roads and services',
+    setting: 'a modern Saudi city district with main roads, schools, malls and green parks',
+    style: 'location-focused real-estate commercial, photorealistic, clean aerial look',
+    lighting: 'clear late-afternoon light',
+    mood: 'convenient, connected, smart choice',
+    sfx: ['a soft rising whoosh', 'distant traffic hum'],
+    ambient: 'city ambience from above',
+    beats: [
+      { ar: 'بداية من الأرض', shot: 'Low aerial shot over the plot', en: 'The camera starts low over {P}' },
+      { ar: 'الارتفاع وكشف الطرق', shot: 'Aerial rising pull-back', en: 'It rises and pulls back to reveal the main roads around {P}, car light trails flowing' },
+      { ar: 'الخدمات حول الأرض', shot: 'Slow aerial pan', en: 'Nearby schools, a mall and green parks come into view around {P}' },
+      { ar: 'العودة للأرض', shot: 'Aerial push-in ending top-down', en: 'The camera returns toward {P}, centered with a soft glowing outline; the frame holds with clean space for text' }
+    ]
+  },
+  /* ---------- Mabkhara ---------- */
+  {
+    id: 'mabkhara-smoke', cat: 'mabkhara', icon: '🕌', name: 'دخان العود',
+    desc: 'ماكرو للنقوش، جمرة توضع وقطعة عود تذوب، دخان يتلوّى بإضاءة خلفية، ولقطة بطل.',
+    person: 'none', pNoun: 'the incense burner (mabkhara)',
+    defaultProduct: 'an ornate brass mabkhara incense burner with engraved patterns',
+    setting: 'a dark elegant set with black marble and deep shadows',
+    style: 'luxury heritage product commercial, photorealistic, rich golden tones',
+    lighting: 'strong backlight that makes the smoke glow, with a warm gold rim light on the metal',
+    mood: 'mystical, luxurious, authentic',
+    sfx: ['charcoal crackling', 'a soft sizzle as oud melts'],
+    ambient: 'near silence with a warm room tone',
+    beats: [
+      { ar: 'ماكرو للنقوش', shot: 'Extreme macro, 100mm macro lens, slow slide', en: 'Light glides over the engraved patterns of {P}' },
+      { ar: 'جمرة وقطعة عود تذوب', shot: 'Close-up, shallow depth of field', en: 'A glowing coal is placed in {P} and a piece of oud begins to melt, bubbling softly' },
+      { ar: 'الدخان يتلوّى', shot: 'Close-up, slow motion, backlit', en: 'Thick ribbons of white smoke spiral upward from {P}, glowing in the backlight' },
+      { ar: 'لقطة البطل', shot: 'Locked-off hero shot, centered', en: '{P} stands on black marble wrapped in drifting smoke; the frame holds with clean space for a title' }
+    ]
+  },
+  {
+    id: 'mabkhara-majlis', cat: 'mabkhara', icon: '🤝', name: 'ضيافة المجلس',
+    desc: 'المضيف يمرر المبخرة على الضيوف، الضيف يقرّب الدخان نحوه، ثم المبخرة بجانب الدلة.',
+    person: 'optional', cNoun: 'the host', pNoun: 'the incense burner (mabkhara)',
+    defaultChar: 'a welcoming Saudi host in his forties in a white thobe and a red-and-white shemagh',
+    defaultProduct: 'an ornate brass mabkhara with glowing oud smoke',
+    setting: 'a traditional Najdi majlis with seated guests in thobes, Sadu cushions and a brass dallah',
+    style: 'Arabian hospitality commercial, photorealistic, warm cinematic grade',
+    lighting: 'warm amber light with soft smoke haze',
+    mood: 'generous, welcoming, authentic',
+    sfx: ['soft footsteps on a carpet', 'guests murmuring greetings'],
+    ambient: 'quiet majlis ambience',
+    beats: [
+      { ar: 'المضيف يحمل المبخرة', shot: 'Medium tracking shot, 35mm lens', en: '{C} walks into the majlis carrying {P}, smoke trailing behind' },
+      { ar: 'يمررها على الضيوف', shot: 'Medium shot, slow push-in', en: '{C} offers {P} to each seated guest with a warm gesture' },
+      { ar: 'الضيف يقرّب الدخان نحوه', shot: 'Close-up, shallow depth of field', en: 'A guest gently wafts the smoke toward his face and smiles' },
+      { ar: 'المبخرة بجانب الدلة', shot: 'Hero close-up, rack focus', en: '{P} rests on a tray beside the brass dallah, smoke rising; the frame holds' }
+    ]
+  },
+  /* ---------- Misc ---------- */
+  {
+    id: 'misc-360', cat: 'other', icon: '🔄', name: 'عرض 360',
+    desc: 'المنتج على قاعدة تدور، ضوء يمسح السطح، ماكرو للتفاصيل، ولقطة بطل. يناسب أي منتج.',
+    person: 'none', pNoun: 'the product',
+    defaultProduct: '',
+    setting: 'a clean studio with a seamless backdrop and a glossy rotating pedestal',
+    style: 'clean e-commerce product commercial, photorealistic, sharp and premium',
+    lighting: 'soft studio lighting with a slow moving highlight sweep',
+    mood: 'clean, clear, desirable',
+    sfx: ['a soft motor hum', 'a gentle light shimmer'],
+    ambient: 'quiet studio air',
+    beats: [
+      { ar: 'المنتج على قاعدة تدور', shot: 'Medium shot, locked', en: '{P} rotates slowly on a glossy pedestal' },
+      { ar: 'ضوء يمسح السطح', shot: 'Close-up, slow slide', en: 'A soft band of light sweeps across the surface of {P}' },
+      { ar: 'ماكرو للتفاصيل', shot: 'Extreme macro, 100mm macro lens', en: 'Macro details of {P}: texture, edges and finish' },
+      { ar: 'لقطة البطل', shot: 'Hero shot, slow push-in', en: '{P} stops facing the camera, perfectly lit; the frame holds with clean space for a title' }
+    ]
+  },
+  {
+    id: 'misc-lifestyle', cat: 'other', icon: '🏠', name: 'في الحياة اليومية',
+    desc: 'لحظة يومية طبيعية، الشخص يستخدم المنتج، ابتسامة رضا، ثم المنتج في الكادر الأخير.',
+    person: 'optional', cNoun: 'the person', pNoun: 'the product',
+    defaultChar: 'a friendly young Saudi adult in modern casual clothes',
+    defaultProduct: '',
+    setting: 'a bright modern Saudi home with natural light',
+    style: 'authentic lifestyle commercial, photorealistic, warm and natural',
+    lighting: 'soft natural window light',
+    mood: 'easy, happy, relatable',
+    sfx: ['soft natural handling sounds'],
+    ambient: 'calm home ambience',
+    beats: [
+      { ar: 'لحظة يومية طبيعية', shot: 'Medium shot, handheld gimbal, 35mm lens', en: '{C} goes about a relaxed daily moment at home' },
+      { ar: 'يستخدم المنتج', shot: 'Close-up on the hands, shallow depth of field', en: '{C} picks up {P} and uses it naturally' },
+      { ar: 'ابتسامة رضا', shot: 'Medium close-up, 50mm lens', en: '{C} smiles, clearly satisfied' },
+      { ar: 'المنتج في الكادر الأخير', shot: 'Hero close-up, rack focus', en: '{P} rests in sharp focus in the foreground while {C} is softly blurred behind; the frame holds' }
+    ]
+  }
+);
+Object.assign(TPL_CATS, { misbaha: 'سبح', juice: 'عصائر', milk: 'حليب', restaurant: 'مطاعم', gym: 'نوادي', realestate: 'أراضي وعقار', mabkhara: 'مباخر', other: 'منوعات' });
+
+function tplNames(t) {
+  const R = refInfo();
+  const cn = t.cNoun || 'the model';
+  const pn = t.pNoun || 'the product';
+  return { C: R.charImg ? `${cn} from Image ${R.charIdx}` : cn, P: R.prodImg ? `${pn} from Image ${R.prodIdx}` : pn };
+}
 
 function activeTemplate() { return state.template ? TEMPLATES.find((t) => t.id === state.template) || null : null; }
 function tplFavs() { return store.get('of_tplfav', []); }
 
 function templateBeats(t) {
-  const R = refInfo();
-  const C = R.C || 'the model';
-  const P = R.P || 'the product';
-  const fill = (s) => cap(s.replace(/\{C\}/g, C).replace(/\{P\}/g, P));
+  const N = tplNames(t);
+  const fill = (s) => cap(s.replace(/\{C\}/g, N.C).replace(/\{P\}/g, N.P));
   return t.beats.map((b) => ({ ar: b.ar, shot: b.shot, en: fill(b.en), speeches: [] }));
 }
 
@@ -2331,7 +2684,9 @@ function renderTplEntry() {
 function templatesSheetHtml() {
   const favs = tplFavs();
   const f = state.tplFilter;
-  const cats = ['all', 'fav'].concat([...new Set(TEMPLATES.map((t) => t.cat))]);
+  const order = ['all', 'fav', 'realestate', 'restaurant', 'juice', 'milk', 'misbaha', 'mabkhara', 'gym', 'perfume', 'jewelry', 'food', 'drink', 'skincare', 'apparel', 'electronics', 'deodorant', 'other'];
+  const present = new Set(TEMPLATES.map((t) => t.cat));
+  const cats = order.filter((c) => c === 'all' || c === 'fav' || present.has(c));
   const list = TEMPLATES.filter((t) => f === 'all' || (f === 'fav' ? favs.includes(t.id) : t.cat === f));
   const filters = `<div class="flex gap-1.5 overflow-x-auto no-scrollbar pb-1 -mx-1 px-1">${cats.map((c) => `<button type="button" data-tplf="${c}" class="tap px-3 rounded-full text-xs font-bold whitespace-nowrap border ${f === c ? 'border-emerald-500 bg-emerald-500/15 text-emerald-200' : 'border-slate-700 bg-slate-900/60 text-slate-300'}">${esc(TPL_CATS[c])}</button>`).join('')}</div>`;
   const cards = list.length ? list.map((t) => {
