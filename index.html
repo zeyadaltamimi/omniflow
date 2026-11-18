@@ -147,7 +147,7 @@
 
 <script>
 /* =========================================================
-   OmniFlow Studio v8.0 — one photo + name → one strong, researched ad for Google Flow, tuned for Omni 1.2 Flash
+   OmniFlow Studio v9.0 — one photo + name → one strong, researched ad for Google Flow, tuned for Omni 1.2 Flash
    Brain: the "flow-product-ad-prompter" skill, run by Gemini (with Google Search)
    ========================================================= */
 const $ = (id) => document.getElementById(id);
@@ -160,15 +160,16 @@ const icons = () => { try { window.lucide && lucide.createIcons(); } catch (e) {
 const words = (s) => (String(s || '').trim().match(/\S+/g) || []).length;
 
 const OPTS = {
+  flow: { label: 'طريقة العمل', values: { single: '⚡ مقطع واحد: أرفق صورة المنتج والصق', frames: '🖼️ مشاهد: صورة ثم فيديو' }, def: 'single' },
   aspect: { label: 'الأبعاد', values: { '9:16': 'رأسي 9:16', '16:9': 'عريض 16:9', '1:1': 'مربع 1:1' }, def: '9:16' },
   scenes: { label: 'عدد المشاهد', values: { '1': '1', '2': '2', '3': '3', '4': '4', '5': '5' }, def: '3' },
-  secs: { label: 'مدة كل مشهد (ثانية)', values: { '4': '4', '5': '5', '6': '6', '7': '7', '8': '8', '9': '9', '10': '10' }, def: '8' },
+  secs: { label: 'مدة كل مشهد (ثانية)', values: { '4': '4', '6': '6', '8': '8', '10': '10', '12': '12', '15': '15' }, def: '10' },
   rhythm: { label: 'إيقاع المقطع', values: { oner: '🎥 لقطة متصلة مصممة', cuts: '✂️ قطعات سريعة متناغمة' }, def: 'oner' },
   creativity: { label: 'جرعة الإبداع', values: { real: '🎯 واقعي', bold: '✨ مبتكر', wild: '🚀 جريء وخيالي' }, def: 'bold' },
   people: { label: 'الأشخاص', values: { faces: 'يظهر الوجه', nofaces: 'بدون وجوه', none: 'بدون أشخاص' }, def: 'faces' },
   audio: { label: 'الصوت', values: { hype: '🔥 موسيقى حماسية فقط', music: 'موسيقى + مؤثرات', sfx: 'مؤثرات فقط', vo: '🎙️ تعليق عربي داخل المقطع (تجريبي)' }, def: 'hype' }
 };
-const DECK = ['secs', 'scenes', 'rhythm', 'creativity', 'aspect', 'audio'];
+const DECK = ['flow', 'secs', 'scenes', 'rhythm', 'creativity', 'aspect', 'audio'];
 const LENSES = [
   ['🔬 عالم مجهري', 'MACRO WORLD: the camera dives into the product\'s real texture or ingredient and discovers a whole landscape inside it, then pulls out to the hero product.'],
   ['🧸 عالم مصغّر', 'SCALE SHIFT: the product becomes a giant monument in a miniature world (tiny people, tiny city or desert) that reacts to it.'],
@@ -184,10 +185,12 @@ const LENSES = [
   ['⏳ زمن متجمد', 'FROZEN TIME: time freezes mid-action (splash, spray, falling objects) and the camera travels through the frozen moment before time snaps back on the product.']
 ];
 const STAGES = [['🔍', 'يقرأ المنتج من الصورة'], ['🌐', 'يبحث عن مكوناته وفوائده وإعلانات مشابهة'], ['💡', 'يبتكر الأفكار ويختار أقواها'], ['🎬', 'يصمم حركة كل مشهد'], ['✍️', 'يكتب البرومبتات والتعليق']];
-const TIPS = ['في Flow: ولّد الصورة أولاً، بعدها Frames to Video.', 'اختر Omni 1.2 Flash وجرّب على 360p أول، وإذا عجبك ارفعه 720p.', 'لو طلع خطأ بسيط لا تعيد التوليد: استخدم برومبتات «إصلاح سريع» تحت كل مشهد.', 'مشهد الختام: أرفق نفس الصورة كإطار أول وأخير عشان المنتج يطلع مضبوط.', 'اختر في Flow نفس مدة المشهد اللي اخترتها هنا.', 'لو طلع المنتج مختلف، أعد التوليد بنفس البرومبت مرة ثانية.', 'التعليق الصوتي والنصوص تضيفها في المونتاج لأن الذكاء يخرب الكتابة.', 'الضغطة على «🔥 أقوى» تطوّر مشهد واحد بدون ما تمس الباقي.', 'جرّب «🎲 فاجئني» لما تبي فكرة ما خطرت على بالك.'];
+const TIPS = ['في Flow: أرفق صورة المنتج كمرجع، والصق البرومبت، واختر نفس المدة.', 'اختر Omni 1.2 Flash وجرّب على 360p أول، وإذا عجبك ارفعه 720p.', 'لو طلع خطأ بسيط لا تعيد التوليد: استخدم برومبتات «إصلاح سريع» تحت كل مشهد.', 'مشهد الختام: أرفق نفس الصورة كإطار أول وأخير عشان المنتج يطلع مضبوط.', 'اختر في Flow نفس مدة المشهد اللي اخترتها هنا.', 'لو طلع المنتج مختلف، أعد التوليد بنفس البرومبت مرة ثانية.', 'التعليق الصوتي والنصوص تضيفها في المونتاج لأن الذكاء يخرب الكتابة.', 'الضغطة على «🔥 أقوى» تطوّر مشهد واحد بدون ما تمس الباقي.', 'جرّب «🎲 فاجئني» لما تبي فكرة ما خطرت على بالك.'];
 const beatsFor = (sec) => sec <= 4 ? 2 : sec <= 6 ? 3 : sec <= 10 ? '3–4' : '4–6';
 const wordsFor = (sec) => sec <= 4 ? '110–150' : sec <= 6 ? '140–190' : sec <= 8 ? '170–230' : '200–270';
 const imgWordsFor = () => '110–170';
+const shotsFor = (sec) => sec <= 6 ? '5–7' : sec <= 10 ? '8–11' : '11–14';
+const wordsSingle = (sec) => sec <= 6 ? '170–230' : sec <= 10 ? '230–320' : '300–400';
 const state = { img: null, opts: {}, result: null, busy: false, sources: [], mode: 'product', brain: '', surprise: null, sceneBusy: -1 };
 
 /* Models: preferred order (quality/price). The list from the API replaces this when available. */
@@ -240,7 +243,9 @@ function systemPrompt() {
   const sec = Number(o.secs);
   const level = { real: 'grounded and realistic, premium but believable', bold: 'inventive and surprising, with one bold visual idea that is still believable', wild: 'daring, imaginative and surreal: scale shifts, transformations, impossible-but-beautiful worlds built from the product itself' }[creat];
   const free = state.mode === 'free';
-  return `${free ? `FREE SCENE MODE: there is no product. Turn the user's Arabic scene idea into a cinematic short of ${o.scenes} scenes (or fewer if the idea is a single moment). Skip the product read (put a one-line Arabic summary of the idea in product_read_ar), skip compliance, keep everything else. Respect every constraint the user states (e.g. "no face", camera from behind).
+  const single = o.flow === 'single';
+  const total = single ? sec : Number(o.scenes) * sec;
+  return `${free ? `FREE SCENE MODE: there is no product. Turn the user's Arabic scene idea into a cinematic short of ${single ? 'ONE clip of ' + sec + ' seconds' : o.scenes + ' scenes'} (or fewer if the idea is a single moment). Skip the product read (put a one-line Arabic summary of the idea in product_read_ar), skip compliance, keep everything else. Respect every constraint the user states (e.g. "no face", camera from behind).
 
 ` : ''}You are an award-winning commercial director and a specialist prompt engineer for Google Flow's Omni 1.2 Flash video model (Gemini Omni Flash 1.2, released Nov 2026). From a product photo (and/or name) and an optional Arabic idea, you create ONE strong, original, scroll-stopping product ad, delivered as ready-to-paste English prompts. Flow workflow per scene: first an IMAGE prompt (Nano Banana, product photo attached) creates the first frame, then a VIDEO prompt (Omni 1.2 Flash, Frames to Video) animates that frame.
 
@@ -253,7 +258,7 @@ function systemPrompt() {
 THE IDEA: one concept, not options, specific to THIS product:
 - A hook in the first 2 seconds (a relatable problem caught in the act, a striking contrast, or a satisfying physical moment).
 - One signature moment built from the product's real benefit, ingredient, texture, smell or use (e.g. anti-dandruff shampoo: a person scratching an itchy scalp in a meeting → the bottle bursts into frame through a wave of foam with its real ingredients → lathering in the shower → walking out confident in a spotless black thobe; perfume: an elegant spray in slow motion that turns into the scent's ingredients around the wearer).
-- A clear arc across ${o.scenes} scenes (problem → surprising product reveal → real use → result & packshot, or tease → ritual → payoff), ending on the product.
+- A clear arc across ${single ? 'the shots of ONE clip' : o.scenes + ' scenes'} (problem → surprising product reveal → real use → result & packshot, or tease → ritual → payoff), ending on the product.
 - The product is used the way it is really used, by a person when it makes sense.
 - No clichés (random sparkles, product floating in an empty void, generic smiling at camera).
 - If the user gives an idea, build on it and make it better.
@@ -271,7 +276,33 @@ THE IDEA: one concept, not options, specific to THIS product:
 - Audio must always be specified or the model invents it. Follow the "Audio:" instruction below exactly; if it says music only, write no sound effects anywhere in the prompt.
 - Negatives: there is no negative field. End with a short "Exclusions:" line that never contradicts a requested layer.
 
-5) EACH SCENE lasts EXACTLY ${sec} seconds (the user sets ${sec}s in Flow, Omni 1.2 Flash, 720p). Plan ${beatsFor(sec)} beats that fill exactly ${sec}s${sec <= 4 ? ', one punchy idea, no slow build-up' : ''}. Each scene gets:
+${single ? `5) ONE-SHOT MODE: the whole ad is ONE Omni 1.2 Flash clip of EXACTLY ${sec} seconds. In Flow the user attaches ONLY the product photo as a reference image and pastes your prompt (no first frame, no image step). Return exactly ONE item in "scenes" with image_prompt set to "" and last_frame false.
+
+Plan ${shotsFor(sec)} shots inside the ${sec} seconds, about one per second, with varied lengths (0.2s flash frames up to 2s holds), contiguous timecodes from 0 to exactly ${sec}s.
+
+UNIVERSAL SHOT GRAMMAR (adapt to ANY product; pick the beats that fit, in this order):
+1. TEASE: the product as a hero, untouched (unlit candle, capped bottle, closed box, raw property at dawn), plus 1–2 macro details of its real design (rim, cap, label script, texture, stitching, stone).
+2. TRIGGER: the one physical act that starts its real use (match strikes, spray presses, cap twists, coffee pours, bite, foam lathers, door opens, drone lifts). For problem-solving products (pharmacy, cleaning, skincare) the trigger can be a 1-second flash of the relatable problem (scratching an itchy scalp, dull skin in a mirror) before the product enters.
+3. SENSORY WORLD: the real ingredient, note or material in slow-motion macro (lavender buds tumbling, oud chips, coffee beans, sage leaves in foam, fruit bursting, silk rippling), always ONE hero botanical/material that matches the product.
+4. TRANSFORMATION / BENEFIT: the result made visible (flame rippling on molten wax, mist becoming the scent notes, rich foam then clean shiny hair, glowing skin, a lit-up home at dusk).
+5. FLASH BURST: 3–4 macro frames of about 0.2s each for rhythm.
+6. PAYOFF: a perfect hero frame of the product (it may float or be surrounded by its ingredient), then a human touch or a loop ending that connects back to the opening (hands lighting it, a hand picking it up, a final spray).
+
+Category hints: candle/home fragrance (match, flame, melt pool, botanical); perfume/oud (spray mist, notes, skin, smoke); pharmacy/shampoo/skincare (quick problem flash, texture swatch, foam, ingredient, calm confident result, no medical before/after); coffee/food/drinks (pour, steam, crema, sizzle, bite, condensation); jewelry/watches/misbaha (light travelling across stones/beads, worn on hand or wrist); mabkhara/incense (ember, smoke ribbons, majlis); fashion (fabric in wind, confident walk); real estate (drone reveal, top-down, dusk lights on, never change the building); gym (lights on row by row, chalk dust, stillness). Saudi/Gulf settings when they add meaning.
+
+The prompt (English, the "video_prompt" field, ${wordsSingle(sec)} words) must use EXACTLY these labeled sections, each on its own line:
+CONTEXT: "A ${sec}-second photorealistic luxury [category] commercial, vertical ${o.aspect}." number of shots, cut style (fast cuts of about a second, macro-led and cinematic), when people appear.
+PRODUCT: "The attached image is the exact product reference." then its precise visual identity (materials, colors, shape, cap/rim/base, contents) and the label words spelled exactly in quotes with their style (e.g. "lavender" in gold script). End with "Never redesigned, never relabeled."
+THE LOOK: mood in 3 words, a tight 2–3 color palette taken from the product against a chosen background, one motivated light source, and "[X] is the only botanical/prop."
+SHOTS: one line per shot "0-1.3s ...", action first, framing and camera in few words.
+SOUND: ${o.audio === 'hype' ? 'music only: one energetic, driving trailer-style track (name the genre and BPM) that builds to the flash burst, hits on the cuts and lands with a final hit on the hero frame. No sound effects, no dialogue, no voice.' : o.audio === 'music' ? 'a trailer bed building to the flash burst then a warm resolving chord, plus the real sounds of the trigger and ingredient moments (match crack, spray hiss, pour, foam). No dialogue.' : o.audio === 'sfx' ? 'no music; only the real sounds of each moment. No dialogue.' : `an off-screen Gulf Arabic voice-over line in quotes (about ${Math.round(sec * 2)} words, describe the voice) over a soft music bed; the people on screen do not speak.`}
+NEGATIVE: "No text or captions; the only lettering is the product's own label." plus no logo animation, no end card, no extra products, and the people rule (e.g. "No face or body, only hands."), then "Exactly ${sec} seconds."
+
+In this mode the PRODUCT and NEGATIVE sections replace the "Keep unchanged:" and "Exclusions:" lines, each SHOTS line is its own cut (no "Start from the provided image" line), and never re-describe the product differently from the PRODUCT section.
+
+Also fill "beats" with the same shots in Arabic (t + short ar), and "fixes" with 2–3 one-change Omni edit prompts for this clip's likely failures (misspelled label, wrong shot order, product redesigned, music too calm), each ending with "Keep everything else the same."
+
+` : `5) EACH SCENE lasts EXACTLY ${sec} seconds (the user sets ${sec}s in Flow, Omni 1.2 Flash, 720p). Plan ${beatsFor(sec)} beats that fill exactly ${sec}s${sec <= 4 ? ', one punchy idea, no slow build-up' : ''}. Each scene gets:
 A. image_prompt: ${imgWordsFor()} words, the frozen FIRST frame matching the opening beat, written as labeled lines: "Shot:" (lens, angle, framing for ${o.aspect}) "Subject:" (product scenes: "the exact product from the attached reference image, same shape, label, colors and proportions", plus its exact visual identity and label words; people: age, look, modest Saudi styling, expression, pose, hands) "Environment:" (specific, premium, Saudi/Gulf when relevant, props from the real ingredients) "Light:" (matching the pack's brand colors) "Style:" (photorealistic premium commercial photography, sharp product focus, natural skin texture) "Exclusions:" (no extra text, no watermark, no distorted label). No motion verbs.
 B. video_prompt: ${wordsFor(sec)} words, a choreographed mini-film, written as labeled layers in this order:
 "Start from the provided image as the first frame." then
@@ -288,11 +319,11 @@ Example of the depth and structure expected (do not copy the content; its audio 
 C. last_frame: true only for a final packshot/loop scene where attaching the SAME image again as the last frame in Frames to Video keeps the product perfect (Flow allows first+last frames up to 10s). If true, write the video prompt so the motion leaves and returns to that exact composition. Otherwise false.
 D. fixes: 2–3 ready follow-up edit prompts for Omni 1.2's conversational editing in Flow, for the most likely failures of THIS scene (label drift, unwanted cut, weak physics, wrong music). Each makes ONE change and ends with "Keep everything else the same."
 
-People: ${o.people === 'none' ? 'no people at all, product only' : o.people === 'nofaces' ? 'people allowed but no faces: hands, shoulders, back-of-head, silhouettes' : 'people allowed with faces, men or women as the product needs'}; modest, Saudi-appropriate styling, Saudi/Gulf settings when relevant; natural acting.
+`}People: ${o.people === 'none' ? 'no people at all, product only' : o.people === 'nofaces' ? 'people allowed but no faces: hands, shoulders, back-of-head, silhouettes' : 'people allowed with faces, men or women as the product needs'}; modest, Saudi-appropriate styling, Saudi/Gulf settings when relevant; natural acting.
 Real estate: the uploaded photo is the exact property; drone, orbit and top-down reveals; never add or change buildings; areas and prices go to on-screen text.
 Health, pharmacy and cosmetic products: no cure or guarantee language ("cures", "100%", "permanently"); no medical before/after; name ingredients only if printed on the pack or confirmed by research for this exact product.
 
-6) Also write an Arabic voice-over for the editor (Saudi/Gulf-friendly, fits ${Number(o.scenes) * sec} seconds, about ${Math.round(Number(o.scenes) * sec * 2.2)} Arabic words max, compliant) and short Arabic on-screen text lines for the editor.
+6) Also write an Arabic voice-over for the editor (Saudi/Gulf-friendly, fits ${total} seconds, about ${Math.round(total * 2.2)} Arabic words max, compliant) and short Arabic on-screen text lines for the editor.
 
 ${state.brain ? `House rules from the user's brain file (follow them):\n${state.brain}\n\n` : ''}Reply with ONLY one JSON object, no markdown:
 {"product_read_ar": string (3–6 short Arabic lines: name/type, visual identity, printed words, ingredients and what each does, unclear items),
@@ -311,7 +342,7 @@ function userParts(extra) {
     state.mode === 'free' ? 'Mode: free scene (no product).' : `Product name (Arabic): ${$('name').value.trim() || '(read it from the photo)'}`,
     `User idea (Arabic): ${$('idea').value.trim() || 'none — invent the best idea'}`,
     `Reference photo attached: ${state.img ? (state.mode === 'free' ? 'yes (use it as the visual reference for the scene)' : 'yes') : 'no'}`,
-    `Aspect ratio: ${state.opts.aspect}. Scenes: ${state.opts.scenes} × ${state.opts.secs}s (total ${Number(state.opts.scenes) * Number(state.opts.secs)}s).`,
+    state.opts.flow === 'single' ? `Aspect ratio: ${state.opts.aspect}. One-shot mode: ONE clip of ${state.opts.secs}s, product photo attached as reference in Flow.` : `Aspect ratio: ${state.opts.aspect}. Scenes: ${state.opts.scenes} × ${state.opts.secs}s (total ${Number(state.opts.scenes) * Number(state.opts.secs)}s).`,
     state.surprise ? `SURPRISE ME — build the whole idea through this creative lens, make it unexpected and unforgettable, but keep the real product accurate: ${state.surprise[1]}` : '',
     extra || ''
   ].filter(Boolean).join('\n') });
@@ -363,6 +394,7 @@ async function generate(extra) {
   }
   const j = out.json;
   if (!j.scenes || !j.scenes.length) throw new Error('ما رجعت مشاهد، جرّب مرة ثانية');
+  if (state.opts.flow === 'single') { j.scenes = j.scenes.slice(0, 1); j.scenes[0].image_prompt = ''; j.scenes[0].last_frame = false; }
   return { ...j, sources: out.sources, mode: state.mode, name: state.mode === 'free' ? 'مشهد حر' : $('name').value.trim(), idea_in: $('idea').value.trim(), opts: { ...state.opts }, lens: state.surprise ? state.surprise[0] : '', time: Date.now() };
 }
 
@@ -454,26 +486,28 @@ function renderDrop() {
 }
 function renderMakeLabel() {
   if (state.busy) return;
-  const total = Number(state.opts.scenes) * Number(state.opts.secs);
+  const total = (state.opts.flow === 'single' ? 1 : Number(state.opts.scenes)) * Number(state.opts.secs);
   $('make-label').textContent = `${state.result ? 'اصنع إعلاناً جديداً' : 'اصنع الإعلان'} · ${total} ث`;
 }
 function renderQuick() {
   const o = state.opts;
-  const n = Number(o.scenes), sec = Number(o.secs), total = n * sec;
+  const single = o.flow === 'single';
+  const n = single ? 1 : Number(o.scenes), sec = Number(o.secs), total = n * sec;
   const row = (k, cls) => `<div class="space-y-1.5"><p class="text-xs font-semibold text-[color:var(--muted)]">${OPTS[k].label}</p>
     <div class="flex flex-wrap gap-1.5">${Object.entries(OPTS[k].values).map(([v, l]) => `<button type="button" data-opt="${k}" data-val="${v}" aria-pressed="${o[k] === v}" class="deck-chip ${o[k] === v ? 'on' : ''} ${cls} rounded-xl text-sm">${l}</button>`).join('')}</div></div>`;
   $('deck').innerHTML = `
     <div class="flex items-end justify-between gap-3">
       <div><p class="text-xs text-[color:var(--muted)]">مدة الإعلان</p><p class="text-2xl font-bold leading-none mt-1"><span class="text-[color:var(--gold)]">${total}</span> <span class="text-sm font-semibold">ثانية</span></p></div>
-      <p class="text-xs text-[color:var(--muted)] text-left">${n} ${n > 1 ? (n > 2 ? 'مشاهد' : 'مشهدين') : 'مشهد'} × ${sec} ث<br>${esc(OPTS.aspect.values[o.aspect])}</p>
+      <p class="text-xs text-[color:var(--muted)] text-left">${single ? 'مقطع واحد' : `${n} ${n > 1 ? (n > 2 ? 'مشاهد' : 'مشهدين') : 'مشهد'} × ${sec} ث`}<br>${esc(OPTS.aspect.values[o.aspect])}</p>
     </div>
     <div class="flex gap-1" aria-hidden="true">${Array.from({ length: n }, (_, i) => `<div class="seg flex-1 relative"><span class="absolute -bottom-4 right-0 text-[10px] text-[color:var(--muted)]">${i * sec}</span></div>`).join('')}</div>
     <details class="pt-2"><summary class="tap flex items-center justify-between cursor-pointer list-none text-xs font-semibold text-[color:var(--muted)]"><span>⚙️ تخصيص (اختياري) · ${esc(OPTS.audio.values[o.audio])}</span><i data-lucide="chevron-down" class="w-4 h-4"></i></summary>
     <div class="pt-2 space-y-3.5">
+      ${row('flow', 'px-3')}
       ${row('audio', 'px-3')}
       ${row('secs', 'w-12 font-semibold num')}
-      ${row('scenes', 'w-11 font-semibold num')}
-      ${row('rhythm', 'px-3')}
+      ${single ? '' : row('scenes', 'w-11 font-semibold num')}
+      ${single ? '' : row('rhythm', 'px-3')}
       ${row('creativity', 'px-3')}
       ${row('aspect', 'px-3')}
     </div></details>
@@ -550,7 +584,7 @@ function renderResult() {
         <span class="px-2.5 py-1 rounded-full bg-black/30 border border-[color:var(--line)]">⏱ ${r.scenes.length * Number(r.opts.secs)} ث</span>
         <span class="px-2.5 py-1 rounded-full bg-black/30 border border-[color:var(--line)]">${r.scenes.length} × ${esc(r.opts.secs)} ث</span>
         <span class="px-2.5 py-1 rounded-full bg-black/30 border border-[color:var(--line)]">${esc(OPTS.aspect.values[r.opts.aspect])}</span>
-        ${OPTS.rhythm.values[r.opts.rhythm] ? `<span class="px-2.5 py-1 rounded-full bg-black/30 border border-[color:var(--line)]">${esc(OPTS.rhythm.values[r.opts.rhythm])}</span>` : ''}
+        ${r.opts.flow !== 'single' && OPTS.rhythm.values[r.opts.rhythm] ? `<span class="px-2.5 py-1 rounded-full bg-black/30 border border-[color:var(--line)]">${esc(OPTS.rhythm.values[r.opts.rhythm])}</span>` : ''}
         ${r.lens ? `<span class="px-2.5 py-1 rounded-full border border-[color:var(--gold)] text-[color:var(--gold)]">🎲 ${esc(r.lens)}</span>` : ''}
       </div>
     </div>
@@ -576,12 +610,12 @@ function renderResult() {
       </div>
       ${state.sceneBusy === i ? '<p class="text-sm text-center text-[color:var(--gold)]"><span class="beat-dot pulse inline-block ml-2"></span>يطوّر هذا المشهد…</p>' : ''}
       ${beatsHtml(s, Number(r.opts.secs))}
-      <div class="space-y-2">
+      ${s.image_prompt ? `<div class="space-y-2">
         <div class="flex items-center justify-between gap-2"><p class="text-xs font-semibold"><span class="text-[color:var(--gold)]">① الصورة</span> <span class="text-[color:var(--muted)]">${esc(s.attach_ar || 'أرفق صورة المنتج')}</span></p>${copyBtn('i' + i)}</div>
         <div class="prompt mono">${esc(s.image_prompt)}</div>
-      </div>
+      </div>` : ''}
       <div class="space-y-2">
-        <div class="flex items-center justify-between gap-2"><p class="text-xs font-semibold"><span class="text-emerald-300">② الفيديو</span> <span class="text-[color:var(--muted)]">Frames to Video · ${s.last_frame ? 'أرفق الصورة كإطار أول وأخير' : 'أرفق الصورة كإطار أول'} · ${words(s.video_prompt)} كلمة</span></p>${copyBtn('v' + i)}</div>
+        <div class="flex items-center justify-between gap-2"><p class="text-xs font-semibold">${s.image_prompt ? `<span class="text-emerald-300">② الفيديو</span> <span class="text-[color:var(--muted)]">Frames to Video · ${s.last_frame ? 'أرفق الصورة كإطار أول وأخير' : 'أرفق الصورة كإطار أول'} · ${words(s.video_prompt)} كلمة</span>` : `<span class="text-emerald-300">🎬 برومبت الإعلان</span> <span class="text-[color:var(--muted)]">أرفق صورة المنتج والصق · ${words(s.video_prompt)} كلمة</span>`}</p>${copyBtn('v' + i)}</div>
         <div class="prompt mono">${esc(s.video_prompt)}</div>
         <p class="text-[11px] text-[color:var(--muted)]">في Flow: <b class="text-[color:var(--text)]">Omni 1.2 Flash</b> · مدة <b class="text-[color:var(--text)]">${esc(r.opts.secs)} ثواني</b> · ${esc(OPTS.aspect.values[r.opts.aspect] || r.opts.aspect)} · جرّب 360p ثم 720p</p>
       </div>
@@ -628,7 +662,7 @@ async function copyText(text, desc) {
 }
 function fullText(r) {
   const L = [`${(r.idea && r.idea.title_ar) || r.name}`, (r.idea && r.idea.logline_ar) || '', ''];
-  r.scenes.forEach((s, i) => { L.push(`══ مشهد ${i + 1}: ${s.title_ar || ''} (${(r.opts && r.opts.secs) || ''} ث) ══`, s.beat_ar || '', ...(s.beats || []).map((x) => `  ${x.t || ''}  ${x.ar || ''}`), '', '① IMAGE (Nano Banana) — ' + (s.attach_ar || ''), s.image_prompt, '', '② VIDEO (Omni 1.2 Flash · Frames to Video' + (s.last_frame ? ' · same image as first + last frame' : '') + ')', s.video_prompt, '', ...((s.fixes || []).length ? ['🛠️ إصلاح سريع:', ...s.fixes.map((f) => `• ${f.ar || ''}\n${f.prompt || ''}`), ''] : [])); });
+  r.scenes.forEach((s, i) => { L.push(`══ مشهد ${i + 1}: ${s.title_ar || ''} (${(r.opts && r.opts.secs) || ''} ث) ══`, s.beat_ar || '', ...(s.beats || []).map((x) => `  ${x.t || ''}  ${x.ar || ''}`), '', ...(s.image_prompt ? ['① IMAGE (Nano Banana) — ' + (s.attach_ar || ''), s.image_prompt, ''] : ['أرفق صورة المنتج كمرجع في Flow والصق:']), (s.image_prompt ? '② VIDEO (Omni 1.2 Flash · Frames to Video' + (s.last_frame ? ' · same image as first + last frame' : '') + ')' : '🎬 VIDEO (Omni 1.2 Flash · product photo as reference)'), s.video_prompt, '', ...((s.fixes || []).length ? ['🛠️ إصلاح سريع:', ...s.fixes.map((f) => `• ${f.ar || ''}\n${f.prompt || ''}`), ''] : [])); });
   if (r.voiceover_ar) L.push('══ التعليق الصوتي ══', r.voiceover_ar, '');
   if ((r.onscreen_ar || []).length) L.push('══ نصوص الشاشة ══', ...r.onscreen_ar.map((t) => '• ' + t));
   return L.join('\n');
