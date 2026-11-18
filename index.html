@@ -166,9 +166,9 @@ const OPTS = {
   rhythm: { label: 'إيقاع المقطع', values: { oner: '🎥 لقطة متصلة مصممة', cuts: '✂️ قطعات سريعة متناغمة' }, def: 'oner' },
   creativity: { label: 'جرعة الإبداع', values: { real: '🎯 واقعي', bold: '✨ مبتكر', wild: '🚀 جريء وخيالي' }, def: 'bold' },
   people: { label: 'الأشخاص', values: { faces: 'يظهر الوجه', nofaces: 'بدون وجوه', none: 'بدون أشخاص' }, def: 'faces' },
-  audio: { label: 'الصوت', values: { music: 'مؤثرات + موسيقى', sfx: 'مؤثرات فقط', vo: '🎙️ تعليق عربي داخل المقطع (تجريبي)' }, def: 'music' }
+  audio: { label: 'الصوت', values: { hype: '🔥 موسيقى حماسية فقط', music: 'موسيقى + مؤثرات', sfx: 'مؤثرات فقط', vo: '🎙️ تعليق عربي داخل المقطع (تجريبي)' }, def: 'hype' }
 };
-const DECK = ['secs', 'scenes', 'rhythm', 'creativity', 'aspect'];
+const DECK = ['secs', 'scenes', 'rhythm', 'creativity', 'aspect', 'audio'];
 const LENSES = [
   ['🔬 عالم مجهري', 'MACRO WORLD: the camera dives into the product\'s real texture or ingredient and discovers a whole landscape inside it, then pulls out to the hero product.'],
   ['🧸 عالم مصغّر', 'SCALE SHIFT: the product becomes a giant monument in a miniature world (tiny people, tiny city or desert) that reacts to it.'],
@@ -268,7 +268,7 @@ THE IDEA: one concept, not options, specific to THIS product:
 - Product fidelity: name the brand details explicitly, because unnamed details drift. Spell the label words exactly as printed in single quotes (only English/Latin words; describe Arabic or tiny text as "small printed text, unchanged"). Add a "Keep unchanged:" line listing what must not move or change (bottle shape, cap, label layout and words, colors, proportions; the person's face and clothes).
 - Image-to-video: the first frame already holds the look, so in the video prompt do not re-describe colors and materials; describe what moves, the camera, light changes and sound.
 - Final beat: the product lands in a perfectly composed hero frame and holds still for the last 0.5–1 second while the sound finishes.
-- Audio must always be specified or the model invents it: music (genre + mood) or "no music", ambience "in the background", and one sound effect per beat.
+- Audio must always be specified or the model invents it. Follow the "Audio:" instruction below exactly; if it says music only, write no sound effects anywhere in the prompt.
 - Negatives: there is no negative field. End with a short "Exclusions:" line that never contradicts a requested layer.
 
 5) EACH SCENE lasts EXACTLY ${sec} seconds (the user sets ${sec}s in Flow, Omni 1.2 Flash, 720p). Plan ${beatsFor(sec)} beats that fill exactly ${sec}s${sec <= 4 ? ', one punchy idea, no slow build-up' : ''}. Each scene gets:
@@ -276,13 +276,13 @@ A. image_prompt: ${imgWordsFor()} words, the frozen FIRST frame matching the ope
 B. video_prompt: ${wordsFor(sec)} words, a choreographed mini-film, written as labeled layers in this order:
 "Start from the provided image as the first frame." then
 ${o.rhythm === 'oner' ? '"Shot: single continuous shot, no cuts." plus the camera path that evolves (e.g. macro push-in that becomes an orbit, then a rising crane reveal), never a random drift.' : '"Shot: fast editorial sequence." Each block is its own shot starting with "Cut to:" (except the first) and names its framing (macro, close-up, wide, top-down); join shots on a match cut, whip or light flash; the product stays identical across cuts.'}
-"Timeline:" the ${beatsFor(sec)} timecoded blocks, each: action first, then camera move, then light change, using speed ramps (slow motion on the key physical moment, back to real time for the reveal) and in-shot transitions (match-move, whip-through, focus pull, light sweep, reveal from behind a foreground element, transformation).
+"Timeline:" the ${beatsFor(sec)} timecoded blocks, each: action first, then camera move, then light change, ${o.audio === 'hype' ? 'cut the action to the rhythm of energetic music, ' : ''}using speed ramps (slow motion on the key physical moment, back to real time for the reveal) and in-shot transitions (match-move, whip-through, focus pull, light sweep, reveal from behind a foreground element, transformation).
 "Light:" one line.
-"Audio:" ${o.audio === 'music' ? 'a short cinematic music bed (genre + mood) that builds and lands on the final frame, ambience in the background, and one sound hit per block (whoosh, chime, splash, foam crackle, spray hiss). No dialogue.' : o.audio === 'sfx' ? 'no music; ambience in the background and one sound hit per block. No dialogue.' : `an off-screen Saudi Arabic voice-over (describe the voice: gender, age, warm/confident tone) that says one short line in quotes, in Gulf Arabic, about ${Math.max(4, Math.round(sec * 2))} words, timed inside the clip; state "the person on screen does not speak"; soft music bed under it; one sound hit per block.`}
+"Audio:" ${o.audio === 'hype' ? 'music only: one energetic, driving, upbeat commercial track (name the genre, e.g. modern trap-pop or epic percussive hybrid, around 120–140 BPM) that starts strong on the first frame, hits accents on the beat changes and lands with a final hit on the hero frame. No sound effects, no ambience, no dialogue, no voice.' : o.audio === 'music' ? 'a short cinematic music bed (genre + mood) that builds and lands on the final frame, ambience in the background, and one sound hit per block (whoosh, chime, splash, foam crackle, spray hiss). No dialogue.' : o.audio === 'sfx' ? 'no music; ambience in the background and one sound hit per block. No dialogue.' : `an off-screen Saudi Arabic voice-over (describe the voice: gender, age, warm/confident tone) that says one short line in quotes, in Gulf Arabic, about ${Math.max(4, Math.round(sec * 2))} words, timed inside the clip; state "the person on screen does not speak"; soft music bed under it; one sound hit per block.`}
 "Keep unchanged:" one line.
 "Exclusions:" no captions, no subtitles, no on-screen text, no watermark, no extra logos.
 
-Example of the depth and structure expected (do not copy the content):
+Example of the depth and structure expected (do not copy the content; its audio line is only an example, use the Audio instruction above):
 "Start from the provided image as the first frame. Shot: single continuous shot, no cuts, vertical 9:16. Timeline: [0-3s] Extreme macro on a single golden drop sliding down the perfume bottle; the camera slowly pushes in along the glass as the drop falls in slow motion. [3-6s] The drop bursts into a ring of golden mist; the camera arcs 90 degrees around the bottle as the mist reveals a dark marble majlis with oud smoke curling upward. [6-8s] The camera rises in one smooth crane move, speed ramps to real time, a light sweep crosses the cap, and the bottle settles into a centered hero frame that holds still for the last second. Light: warm low side light, soft gold rim on the glass. Audio: deep whoosh as the drop falls, crystalline chime on the burst, soft oud crackle in the background, a rising cinematic pulse that lands on the final frame, no dialogue. Keep unchanged: bottle shape, gold cap, label layout and the word 'OUD NOIR' exactly as in the first frame, always sharp and fully visible. Exclusions: no captions, no subtitles, no on-screen text, no watermark."
 
 C. last_frame: true only for a final packshot/loop scene where attaching the SAME image again as the last frame in Frames to Video keeps the product perfect (Flow allows first+last frames up to 10s). If true, write the video prompt so the motion leaves and returns to that exact composition. Otherwise false.
@@ -468,13 +468,15 @@ function renderQuick() {
       <p class="text-xs text-[color:var(--muted)] text-left">${n} ${n > 1 ? (n > 2 ? 'مشاهد' : 'مشهدين') : 'مشهد'} × ${sec} ث<br>${esc(OPTS.aspect.values[o.aspect])}</p>
     </div>
     <div class="flex gap-1" aria-hidden="true">${Array.from({ length: n }, (_, i) => `<div class="seg flex-1 relative"><span class="absolute -bottom-4 right-0 text-[10px] text-[color:var(--muted)]">${i * sec}</span></div>`).join('')}</div>
+    <details class="pt-2"><summary class="tap flex items-center justify-between cursor-pointer list-none text-xs font-semibold text-[color:var(--muted)]"><span>⚙️ تخصيص (اختياري) · ${esc(OPTS.audio.values[o.audio])}</span><i data-lucide="chevron-down" class="w-4 h-4"></i></summary>
     <div class="pt-2 space-y-3.5">
+      ${row('audio', 'px-3')}
       ${row('secs', 'w-12 font-semibold num')}
       ${row('scenes', 'w-11 font-semibold num')}
       ${row('rhythm', 'px-3')}
       ${row('creativity', 'px-3')}
       ${row('aspect', 'px-3')}
-    </div>
+    </div></details>
     ${sec >= 12 ? '<p class="text-[11px] text-[color:var(--muted)] leading-relaxed">💡 المشاهد الطويلة (12–15 ث) تطلع قصة كاملة داخل المشهد، تأكد إن Flow مضبوط على نفس المدة.</p>' : sec <= 4 ? '<p class="text-[11px] text-[color:var(--muted)] leading-relaxed">⚡ 4 ثواني = لقطة خاطفة قوية، ممتازة للهوك وبداية الإعلان.</p>' : ''}
     <button type="button" data-open="settings" class="text-xs text-[color:var(--muted)] flex items-center gap-1"><i data-lucide="sliders-horizontal" class="w-3.5 h-3.5"></i>الأشخاص، الصوت، المفتاح والنموذج</button>`;
   renderMakeLabel();

@@ -27,5 +27,5 @@ Motion choreography toolkit (use inside every clip):
 - In-shot transitions: match-move on a shape (a drop becomes a sun, a ring becomes a coffee cup rim), whip-through, focus pull from foreground to product, light sweep reveal, smoke or fabric wipe.
 - Speed ramps: slow motion on the key physical moment, back to real time for the reveal.
 - The world reacts to the product: liquid crowns, steam rises on cue, fabric unfurls, sand shifts, lights switch on in rhythm.
-- Sound design hits on every beat, landing exactly on the final hero frame.
+- Sound lands exactly on the final hero frame (sound effects only when the user's audio setting includes them).
 - Never a lone slow drift with nothing happening.
