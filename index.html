@@ -33,6 +33,22 @@
     @keyframes spin { to { transform: rotate(360deg); } }
     .spin { animation: spin 1s linear infinite; }
     @keyframes shimmer { 0% { background-position: -400px 0; } 100% { background-position: 400px 0; } }
+    .deck-chip { border: 1px solid var(--line); background: #0a0d14; color: #c9d0dc; min-height: 38px; transition: all .15s; }
+    .num { font-family: 'JetBrains Mono', ui-monospace, monospace; text-align: center; }
+    .deck-chip.on { border-color: var(--gold); color: #1a1406; background: linear-gradient(135deg, #f1d595, #c9a35a); font-weight: 700; }
+    .deck-chip:active { transform: scale(.96); }
+    .seg { height: 8px; border-radius: 99px; background: linear-gradient(90deg, #c9a35a, #f1d595); }
+    .seg:nth-child(even) { background: linear-gradient(90deg, #3d8f78, #6ee7b7); }
+    .beat-dot { width: 9px; height: 9px; border-radius: 99px; background: var(--gold); box-shadow: 0 0 0 4px rgba(232,196,124,.12); }
+    @keyframes pulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: .45; transform: scale(.85); } }
+    .pulse { animation: pulse 1.1s ease-in-out infinite; }
+    @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+    .rise { animation: rise .35s ease-out both; }
+    @keyframes bar { from { width: 0; } }
+    .stage-bar { height: 4px; border-radius: 99px; background: linear-gradient(90deg, #c9a35a, #f1d595); transition: width .8s ease; }
+    @keyframes dice { 0% { transform: rotate(0); } 30% { transform: rotate(-25deg) scale(1.15); } 60% { transform: rotate(20deg); } 100% { transform: rotate(0); } }
+    .dice:hover .dice-i, .dice:active .dice-i { animation: dice .5s ease; display: inline-block; }
+    .scene-busy { opacity: .45; pointer-events: none; filter: saturate(.4); }
     .skeleton { background: linear-gradient(90deg, #0e121b 0px, #171d2a 200px, #0e121b 400px); background-size: 800px 100%; animation: shimmer 1.4s infinite linear; border-radius: 12px; }
   </style>
 </head>
@@ -76,11 +92,14 @@
         <textarea id="idea" rows="2" class="field leading-relaxed" placeholder="مثال: أبيه فخم وفيه مجلس، أو: المساحة 450م² وتظهر على العقار"></textarea>
       </div>
 
-      <div class="flex items-center gap-2 flex-wrap" id="quick-settings"></div>
+      <div id="deck" class="panel p-4 space-y-4"></div>
 
-      <button id="btn-make" type="button" class="tap w-full rounded-2xl gold-btn font-bold text-base flex items-center justify-center gap-2 py-3.5 disabled:opacity-60">
-        <i id="make-icon" data-lucide="sparkles" class="w-5 h-5"></i><span id="make-label">اصنع الإعلان</span>
-      </button>
+      <div class="flex gap-2">
+        <button id="btn-make" type="button" class="tap flex-1 rounded-2xl gold-btn font-bold text-base flex items-center justify-center gap-2 py-3.5 disabled:opacity-60">
+          <i id="make-icon" data-lucide="sparkles" class="w-5 h-5"></i><span id="make-label">اصنع الإعلان</span>
+        </button>
+        <button id="btn-surprise" type="button" title="فكرة جريئة بعدسة عشوائية" class="dice tap px-4 rounded-2xl chip font-bold text-sm flex items-center gap-1.5 disabled:opacity-60"><span class="dice-i text-lg">🎲</span>فاجئني</button>
+      </div>
       <p id="key-hint" class="hidden text-xs text-center text-[color:var(--muted)]">تحتاج مفتاح Gemini · <button type="button" data-open="settings" class="text-[color:var(--gold)] underline">أضفه من الإعدادات</button></p>
     </section>
 
@@ -128,7 +147,7 @@
 
 <script>
 /* =========================================================
-   OmniFlow Studio v7 — one photo + name → one strong, researched ad for Google Flow
+   OmniFlow Studio v7.3 — one photo + name → one strong, researched ad for Google Flow
    Brain: the "flow-product-ad-prompter" skill, run by Gemini (with Google Search)
    ========================================================= */
 const $ = (id) => document.getElementById(id);
@@ -142,14 +161,33 @@ const words = (s) => (String(s || '').trim().match(/\S+/g) || []).length;
 
 const OPTS = {
   aspect: { label: 'الأبعاد', values: { '9:16': 'رأسي 9:16', '16:9': 'عريض 16:9', '1:1': 'مربع 1:1' }, def: '9:16' },
-  scenes: { label: 'عدد المشاهد', values: { '3': '3 مشاهد', '4': '4 مشاهد' }, def: '3' },
-  secs: { label: 'مدة المشهد', values: { '6': '6 ث', '8': '8 ث', '10': '10 ث' }, def: '8' },
-  rhythm: { label: 'إيقاع المقطع', values: { oner: 'مشهد متصل مصمم', cuts: 'قطعات متناغمة' }, def: 'oner' },
-  creativity: { label: 'جرعة الإبداع', values: { real: 'واقعي', bold: 'مبتكر', wild: 'جريء وخيالي' }, def: 'bold' },
+  scenes: { label: 'عدد المشاهد', values: { '1': '1', '2': '2', '3': '3', '4': '4', '5': '5' }, def: '3' },
+  secs: { label: 'مدة كل مشهد (ثانية)', values: { '4': '4', '6': '6', '8': '8', '10': '10', '12': '12', '15': '15' }, def: '8' },
+  rhythm: { label: 'إيقاع المقطع', values: { oner: '🎥 لقطة متصلة مصممة', cuts: '✂️ قطعات سريعة متناغمة' }, def: 'oner' },
+  creativity: { label: 'جرعة الإبداع', values: { real: '🎯 واقعي', bold: '✨ مبتكر', wild: '🚀 جريء وخيالي' }, def: 'bold' },
   people: { label: 'الأشخاص', values: { faces: 'يظهر الوجه', nofaces: 'بدون وجوه', none: 'بدون أشخاص' }, def: 'faces' },
   audio: { label: 'الصوت', values: { music: 'مؤثرات + موسيقى', sfx: 'مؤثرات فقط' }, def: 'music' }
 };
-const state = { img: null, opts: {}, result: null, busy: false, sources: [], mode: 'product', brain: '' };
+const DECK = ['secs', 'scenes', 'rhythm', 'creativity', 'aspect'];
+const LENSES = [
+  ['🔬 عالم مجهري', 'MACRO WORLD: the camera dives into the product\'s real texture or ingredient and discovers a whole landscape inside it, then pulls out to the hero product.'],
+  ['🧸 عالم مصغّر', 'SCALE SHIFT: the product becomes a giant monument in a miniature world (tiny people, tiny city or desert) that reacts to it.'],
+  ['🔁 تحوّل سحري', 'TRANSFORMATION: raw ingredient or problem morphs on camera into the product or the result in one seamless, satisfying transformation.'],
+  ['🏜️ طقس سعودي', 'SAUDI RITUAL: build the film around a real Saudi/Gulf ritual moment (welcoming guests, Eid morning, majlis evening, desert camp, Ramadan iftar) where the product is the centre.'],
+  ['🎭 قصة بمفاجأة', 'TWIST STORY: set up an expectation in the first scene and break it with a clever, delightful reveal that is the product.'],
+  ['🫧 فيزياء ممتعة', 'SATISFYING PHYSICS: ASMR-grade physical moments (pours, crowns, snaps, cuts, folds, domino chains) choreographed like a Rube Goldberg machine that ends on the product.'],
+  ['👁️ من عين المنتج', 'PRODUCT POV: parts of the film are seen from the product\'s point of view, then flip to reveal it in a hero shot.'],
+  ['🔥 عنصر طبيعي', 'ELEMENTAL: one element (water, fire, smoke, sand, light, wind) taken from what the product is or does drives every scene and shapes the product.'],
+  ['🎬 تريلر أكشن', 'ACTION TRAILER: shoot the product like a blockbuster heist or action trailer — slam zooms, speed ramps, dramatic reveals — but premium and clean.'],
+  ['🌌 خيال علمي', 'SCI-FI: the product as a precious object in a sleek near-future world — light beams, levitation, holographic-free clean surfaces, cosmic scale.'],
+  ['🎨 فن متحرك', 'LIVING ART: the scene behaves like a moving artwork — paint, ink in water, paper folding, sculpture forming — that resolves into the real product.'],
+  ['⏳ زمن متجمد', 'FROZEN TIME: time freezes mid-action (splash, spray, falling objects) and the camera travels through the frozen moment before time snaps back on the product.']
+];
+const STAGES = [['🔍', 'يقرأ المنتج من الصورة'], ['🌐', 'يبحث في إعلانات مشابهة'], ['💡', 'يبتكر الأفكار ويختار أقواها'], ['🎬', 'يصمم حركة كل مشهد'], ['✍️', 'يكتب البرومبتات والتعليق']];
+const TIPS = ['في Flow: ولّد الصورة أولاً، بعدها Frames to Video.', 'اختر في Flow نفس مدة المشهد اللي اخترتها هنا.', 'لو طلع المنتج مختلف، أعد التوليد بنفس البرومبت مرة ثانية.', 'التعليق الصوتي والنصوص تضيفها في المونتاج لأن الذكاء يخرب الكتابة.', 'الضغطة على «🔥 أقوى» تطوّر مشهد واحد بدون ما تمس الباقي.', 'جرّب «🎲 فاجئني» لما تبي فكرة ما خطرت على بالك.'];
+const beatsFor = (sec) => sec <= 4 ? 2 : sec <= 6 ? 3 : sec <= 10 ? '3–4' : '4–6';
+const wordsFor = (sec) => sec <= 4 ? '55–85' : sec <= 6 ? '75–115' : sec <= 10 ? '100–150' : '130–190';
+const state = { img: null, opts: {}, result: null, busy: false, sources: [], mode: 'product', brain: '', surprise: null, sceneBusy: -1 };
 
 /* Models: preferred order (quality/price). The list from the API replaces this when available. */
 const MODEL_PREF = ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-3-flash-preview', 'gemini-2.5-flash-lite'];
@@ -197,7 +235,9 @@ Object.keys(OPTS).forEach((k) => { state.opts[k] = OPTS[k].def; });
 /* ---------------- The brain: skill + creative direction ---------------- */
 function systemPrompt() {
   const o = state.opts;
-  const level = { real: 'grounded and realistic, premium but believable', bold: 'inventive and surprising, with one bold visual idea that is still believable', wild: 'daring, imaginative and surreal: scale shifts, transformations, impossible-but-beautiful worlds built from the product itself' }[o.creativity];
+  const creat = state.surprise ? 'wild' : o.creativity;
+  const sec = Number(o.secs);
+  const level = { real: 'grounded and realistic, premium but believable', bold: 'inventive and surprising, with one bold visual idea that is still believable', wild: 'daring, imaginative and surreal: scale shifts, transformations, impossible-but-beautiful worlds built from the product itself' }[creat];
   const free = state.mode === 'free';
   return `${free ? `FREE SCENE MODE: there is no product. Turn the user's Arabic scene idea into a cinematic short of ${o.scenes} scenes (or fewer if the idea is a single moment). Skip the product read (put a one-line Arabic summary of the idea in product_read_ar), skip compliance, keep everything else. Respect every constraint the user states (e.g. "no face", camera from behind).
 
@@ -217,14 +257,14 @@ THE IDEA — one concept, not options. It must be specific to THIS product, not 
 - Avoid clichés (no random sparkles, no floating product in a void unless it means something).
 - If the user gives an idea, build on it and make it better.
 
-4) EACH SCENE (${o.secs} seconds) gets:
+4) EACH SCENE lasts EXACTLY ${sec} seconds (the user will set ${sec}s in Flow). Plan the action to fill exactly ${sec}s: ${beatsFor(sec)} beats${sec <= 4 ? ', one punchy idea, no slow build-up' : sec >= 12 ? ', a full mini-story with a build-up, a peak and a landing' : ''}. Each scene gets:
 A. image_prompt — the frozen first frame that matches the OPENING beat of the video, 70–120 words, in this order: Shot (lens, angle, framing for ${o.aspect}) → Subject (for product scenes: "the exact product from the attached reference image, same shape, label, colors and proportions") → Environment → Lighting (matching the pack's brand colors) → Style (photorealistic premium commercial photography). No motion verbs.
-B. video_prompt — 100–150 words. Each clip is a choreographed mini-film, NOT one static move. It must feel like a real high-end commercial: surprising, rhythmic, precise and smooth.
+B. video_prompt — ${wordsFor(sec)} words. Each clip is a choreographed mini-film, NOT one static move. It must feel like a real high-end commercial: surprising, rhythmic, precise and smooth.
 ${o.rhythm === 'oner'
     ? `- Begin "Start from the provided image as the first frame. One continuous choreographed shot, no cuts."
-- Write 3–4 beats that flow into each other inside the ${o.secs} seconds, using natural timing ("It opens on…", "as…", "then…", "in the final second…"). The camera follows ONE continuous, motivated path that evolves (e.g. macro push-in that becomes an orbit, then a rising crane reveal), never a random drift.
+- Write ${beatsFor(sec)} beats that flow into each other inside the ${sec} seconds, ${sec >= 10 ? 'each beat starting with its timestamp (e.g. "0–3s:", "3–6s:") so the timing is precise' : 'using natural timing ("It opens on…", "as…", "then…", "in the final second…")'}. The camera follows ONE continuous, motivated path that evolves (e.g. macro push-in that becomes an orbit, then a rising crane reveal), never a random drift.
 - Build transitions inside the shot: a match-move, a whip-through, a focus pull, a light sweep, a reveal from behind a foreground element, or a transformation (drop → mist → ingredients, smoke → setting, beans → dune).`
-    : `- Begin "Start from the provided image as the first frame." then describe a fast, editorial sequence of 3–4 shots inside the ${o.secs} seconds, each joined by a deliberate transition (match cut on shape or motion, whip transition, light-flash cut, morph). Name each shot's framing (macro, close-up, wide, top-down) and keep the product identical across cuts.`}
+    : `- Begin "Start from the provided image as the first frame." then describe a fast, editorial sequence of ${beatsFor(sec)} shots inside the ${sec} seconds${sec >= 10 ? ', each shot starting with its timestamp (e.g. "0–2s:")' : ''}, each joined by a deliberate transition (match cut on shape or motion, whip transition, light-flash cut, morph). Name each shot's framing (macro, close-up, wide, top-down) and keep the product identical across cuts.`}
 - Use speed ramps (slow motion into real time) and interactive physics where the world reacts to the product (liquid forms a crown, fabric unfurls, smoke wraps the product, light ripples across the surface).
 - End on a precise hero frame of the product, perfectly composed and still for the last half-second.
 - Audio line synchronized to the action: specific sound hits on each beat (whoosh, chime, crack, sizzle, splash) ${o.audio === 'music' ? 'over a short cinematic music bed that builds and lands on the final frame' : 'and ambience, no music'}; no spoken dialogue.
@@ -236,13 +276,13 @@ People: ${o.people === 'none' ? 'no people at all, product only' : o.people === 
 Real estate: the uploaded photo is the exact property; drone, orbit and top-down reveals; never add or change buildings; areas and prices go to on-screen text.
 Health, pharmacy and cosmetic products: no cure or guarantee language ("cures", "100%", "permanently"); no medical before/after; name ingredients only if printed on the pack.
 
-5) Also write an Arabic voice-over (Saudi/Gulf-friendly, fits ${Number(o.scenes) * Number(o.secs)} seconds, compliant) and short Arabic on-screen text lines for the editor.
+5) Also write an Arabic voice-over (Saudi/Gulf-friendly, fits ${Number(o.scenes) * sec} seconds, about ${Math.round(Number(o.scenes) * sec * 2.2)} Arabic words max, compliant) and short Arabic on-screen text lines for the editor.
 
 ${state.brain ? `House rules from the user's brain file (follow them):\n${state.brain}\n\n` : ''}Reply with ONLY one JSON object, no markdown:
 {"product_read_ar": string (3–5 short Arabic lines: name/type, visual identity, printed claims/ingredients, unclear items),
  "research_ar": [2–4 short Arabic insights from similar ads],
  "idea": {"title_ar": string, "logline_ar": string (one sentence), "why_ar": string (why it fits this product)},
- "scenes": [{"title_ar": string, "beat_ar": string (one Arabic line describing the scene), "attach_ar": string (what to attach in Flow), "image_prompt": string, "video_prompt": string}],
+ "scenes": [{"title_ar": string, "beat_ar": string (one Arabic line describing the scene), "attach_ar": string (what to attach in Flow), "beats": [{"t": "0–2s", "ar": string (short Arabic description of this beat: camera + action)}] (${beatsFor(sec)} beats covering exactly 0–${sec}s, matching the video_prompt), "image_prompt": string, "video_prompt": string}],
  "voiceover_ar": string,
  "onscreen_ar": [string],
  "notes_ar": [string (compliance or production tips, optional)]}`;
@@ -255,7 +295,8 @@ function userParts(extra) {
     state.mode === 'free' ? 'Mode: free scene (no product).' : `Product name (Arabic): ${$('name').value.trim() || '(read it from the photo)'}`,
     `User idea (Arabic): ${$('idea').value.trim() || 'none — invent the best idea'}`,
     `Reference photo attached: ${state.img ? (state.mode === 'free' ? 'yes (use it as the visual reference for the scene)' : 'yes') : 'no'}`,
-    `Aspect ratio: ${state.opts.aspect}. Scenes: ${state.opts.scenes} × ${state.opts.secs}s.`,
+    `Aspect ratio: ${state.opts.aspect}. Scenes: ${state.opts.scenes} × ${state.opts.secs}s (total ${Number(state.opts.scenes) * Number(state.opts.secs)}s).`,
+    state.surprise ? `SURPRISE ME — build the whole idea through this creative lens, make it unexpected and unforgettable, but keep the real product accurate: ${state.surprise[1]}` : '',
     extra || ''
   ].filter(Boolean).join('\n') });
   return parts;
@@ -265,7 +306,7 @@ async function callGemini(parts, search, tried) {
   tried = tried || [];
   const key = store.get('of_key', '');
   const model = currentModel();
-  const temp = { real: 0.7, bold: 1.0, wild: 1.25 }[state.opts.creativity] || 1.0;
+  const temp = state.surprise ? 1.3 : ({ real: 0.7, bold: 1.0, wild: 1.25 }[state.opts.creativity] || 1.0);
   const body = { systemInstruction: { parts: [{ text: systemPrompt() }] }, contents: [{ role: 'user', parts }], generationConfig: { temperature: temp } };
   if (search) body.tools = [{ google_search: {} }];
   else body.generationConfig.responseMimeType = 'application/json';
@@ -306,41 +347,59 @@ async function generate(extra) {
   }
   const j = out.json;
   if (!j.scenes || !j.scenes.length) throw new Error('ما رجعت مشاهد، جرّب مرة ثانية');
-  return { ...j, sources: out.sources, mode: state.mode, name: state.mode === 'free' ? 'مشهد حر' : $('name').value.trim(), idea_in: $('idea').value.trim(), opts: { ...state.opts }, time: Date.now() };
+  return { ...j, sources: out.sources, mode: state.mode, name: state.mode === 'free' ? 'مشهد حر' : $('name').value.trim(), idea_in: $('idea').value.trim(), opts: { ...state.opts }, lens: state.surprise ? state.surprise[0] : '', time: Date.now() };
 }
 
 /* ---------------- Actions ---------------- */
-async function make() {
+async function make(surprise) {
   if (state.busy) return;
+  state.surprise = surprise ? LENSES[Math.floor(Math.random() * LENSES.length)] : null;
   if (!store.get('of_key', '')) { $('settings').classList.remove('hidden'); toast('أضف مفتاح Gemini أولاً', '', true); return; }
   if (state.mode === 'product' && !state.img && !$('name').value.trim()) { toast('أضف صورة المنتج أو اسمه', '', true); return; }
   if (state.mode === 'free' && !$('idea').value.trim()) { toast('اكتب فكرة المشهد', '', true); $('idea').focus(); return; }
-  setBusy(true, 'يقرأ المنتج ويبحث ويبتكر الفكرة…');
+  setBusy(true, state.surprise ? 'يجهّز لك مفاجأة…' : 'يصنع الإعلان…');
+  if (state.surprise) toast('🎲 العدسة: ' + state.surprise[0], 'فكرة جريئة غير متوقعة');
   renderSkeleton();
   try {
     state.result = await generate();
+    stopStages();
     saveHistory();
     renderResult();
     $('result').scrollIntoView({ behavior: 'smooth', block: 'start' });
   } catch (e) {
+    stopStages();
     toast('تعذّر الصنع', String(e.message || e).slice(0, 140), true);
     renderResult();
   }
+  state.surprise = null;
   setBusy(false);
 }
 
-async function revise(instruction) {
+async function revise(instruction, sceneIdx) {
   if (state.busy || !state.result || !instruction.trim()) return;
-  setBusy(true, 'يعدّل الإعلان…');
-  const prev = { ...state.result }; delete prev.sources;
+  const one = sceneIdx !== undefined;
+  setBusy(true, one ? `يطوّر المشهد ${sceneIdx + 1}…` : 'يعدّل الإعلان…');
+  if (one) { state.sceneBusy = sceneIdx; renderResult(); }
+  const old = state.result;
+  const prev = { ...old }; delete prev.sources; delete prev.lens;
+  if (old.opts) state.opts = { ...state.opts, ...old.opts };
   try {
-    const r = await generate(`Here is the current ad (JSON):\n${JSON.stringify(prev)}\n\nUser change request (Arabic): ${instruction}\nApply the change, keep everything else that still works, keep the same JSON format.`);
-    if (!r.sources.length) r.sources = state.result.sources || [];
+    const r = await generate(`Here is the current ad (JSON):\n${JSON.stringify(prev)}\n\nChange request: ${instruction}\n${one ? `Rewrite ONLY scene ${sceneIdx + 1} (title, beat, beats, image_prompt, video_prompt). Keep it connected to the scenes before and after it. Copy every other scene exactly as it is.` : 'Apply the change, keep everything else that still works.'} Keep the same JSON format.`);
+    if (!r.sources.length) r.sources = old.sources || [];
+    if (one) {
+      const ns = r.scenes[sceneIdx] || r.scenes[r.scenes.length - 1];
+      r.scenes = old.scenes.map((x, i) => i === sceneIdx ? ns : x);
+      ['idea', 'voiceover_ar', 'onscreen_ar', 'product_read_ar', 'research_ar'].forEach((k) => { if (old[k] !== undefined) r[k] = old[k]; });
+    }
+    r.lens = old.lens || '';
+    r.time = old.time;
     state.result = r;
+    state.sceneBusy = -1;
     saveHistory();
     renderResult();
-    toast('تم التعديل', '');
-  } catch (e) { toast('تعذّر التعديل', String(e.message || e).slice(0, 140), true); }
+    if (one) setTimeout(() => { const el = $('scene-' + sceneIdx); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 50);
+    toast(one ? `تم تطوير المشهد ${sceneIdx + 1}` : 'تم التعديل', '');
+  } catch (e) { state.sceneBusy = -1; renderResult(); toast('تعذّر التعديل', String(e.message || e).slice(0, 140), true); }
   setBusy(false);
 }
 
@@ -348,8 +407,10 @@ async function revise(instruction) {
 function setBusy(b, label) {
   state.busy = b;
   $('btn-make').disabled = b;
-  $('make-label').textContent = b ? label : (state.result ? 'اصنع إعلاناً جديداً' : 'اصنع الإعلان');
+  $('btn-surprise').disabled = b;
+  if (b) $('make-label').textContent = label; else renderMakeLabel();
   const ic = document.querySelector('#btn-make svg'); if (ic) ic.classList.toggle('spin', b);
+  document.querySelectorAll('[data-srev]').forEach((x) => { x.disabled = b; });
   const rb = $('btn-revise'); if (rb) rb.disabled = b;
 }
 function renderMode() {
@@ -375,16 +436,81 @@ function renderDrop() {
         <span class="text-xs text-[color:var(--muted)]">${state.mode === 'free' ? 'شخص أو مكان تبيه يظهر في المشهد' : 'يقرأ منها الشكل والمكونات ويحافظ عليها في الفيديو'}</span></button>`;
   icons();
 }
+function renderMakeLabel() {
+  if (state.busy) return;
+  const total = Number(state.opts.scenes) * Number(state.opts.secs);
+  $('make-label').textContent = `${state.result ? 'اصنع إعلاناً جديداً' : 'اصنع الإعلان'} · ${total} ث`;
+}
 function renderQuick() {
   const o = state.opts;
-  $('quick-settings').innerHTML = `<span class="text-xs text-[color:var(--muted)]">${OPTS.aspect.values[o.aspect]} · ${o.scenes} مشاهد × ${o.secs} ث · ${OPTS.rhythm.values[o.rhythm]} · ${OPTS.creativity.values[o.creativity]}</span>
-    <button type="button" data-open="settings" class="text-xs text-[color:var(--gold)] underline">تغيير</button>`;
-  $('settings-opts').innerHTML = Object.entries(OPTS).map(([k, d]) => `<div class="space-y-1.5"><p class="text-sm font-semibold">${d.label}</p>
+  const n = Number(o.scenes), sec = Number(o.secs), total = n * sec;
+  const row = (k, cls) => `<div class="space-y-1.5"><p class="text-xs font-semibold text-[color:var(--muted)]">${OPTS[k].label}</p>
+    <div class="flex flex-wrap gap-1.5">${Object.entries(OPTS[k].values).map(([v, l]) => `<button type="button" data-opt="${k}" data-val="${v}" aria-pressed="${o[k] === v}" class="deck-chip ${o[k] === v ? 'on' : ''} ${cls} rounded-xl text-sm">${l}</button>`).join('')}</div></div>`;
+  $('deck').innerHTML = `
+    <div class="flex items-end justify-between gap-3">
+      <div><p class="text-xs text-[color:var(--muted)]">مدة الإعلان</p><p class="text-2xl font-bold leading-none mt-1"><span class="text-[color:var(--gold)]">${total}</span> <span class="text-sm font-semibold">ثانية</span></p></div>
+      <p class="text-xs text-[color:var(--muted)] text-left">${n} ${n > 1 ? (n > 2 ? 'مشاهد' : 'مشهدين') : 'مشهد'} × ${sec} ث<br>${esc(OPTS.aspect.values[o.aspect])}</p>
+    </div>
+    <div class="flex gap-1" aria-hidden="true">${Array.from({ length: n }, (_, i) => `<div class="seg flex-1 relative"><span class="absolute -bottom-4 right-0 text-[10px] text-[color:var(--muted)]">${i * sec}</span></div>`).join('')}</div>
+    <div class="pt-2 space-y-3.5">
+      ${row('secs', 'w-12 font-semibold num')}
+      ${row('scenes', 'w-11 font-semibold num')}
+      ${row('rhythm', 'px-3')}
+      ${row('creativity', 'px-3')}
+      ${row('aspect', 'px-3')}
+    </div>
+    ${sec >= 12 ? '<p class="text-[11px] text-[color:var(--muted)] leading-relaxed">💡 المشاهد الطويلة (12–15 ث) تطلع قصة كاملة داخل المشهد، تأكد إن Flow مضبوط على نفس المدة.</p>' : sec <= 4 ? '<p class="text-[11px] text-[color:var(--muted)] leading-relaxed">⚡ 4 ثواني = لقطة خاطفة قوية، ممتازة للهوك وبداية الإعلان.</p>' : ''}
+    <button type="button" data-open="settings" class="text-xs text-[color:var(--muted)] flex items-center gap-1"><i data-lucide="sliders-horizontal" class="w-3.5 h-3.5"></i>الأشخاص، الصوت، المفتاح والنموذج</button>`;
+  renderMakeLabel();
+  icons();
+  $('settings-opts').innerHTML = Object.entries(OPTS).filter(([k]) => !DECK.includes(k)).map(([k, d]) => `<div class="space-y-1.5"><p class="text-sm font-semibold">${d.label}</p>
     <div class="flex flex-wrap gap-1.5">${Object.entries(d.values).map(([v, l]) => `<button type="button" data-opt="${k}" data-val="${v}" class="chip ${o[k] === v ? 'on' : ''} tap px-3.5 rounded-xl text-sm">${l}</button>`).join('')}</div></div>`).join('');
   $('key-hint').classList.toggle('hidden', !!store.get('of_key', ''));
 }
+let stageT = null;
+function stopStages() { clearInterval(stageT); stageT = null; }
 function renderSkeleton() {
-  $('result').innerHTML = `<div class="space-y-3"><div class="skeleton h-24"></div><div class="skeleton h-40"></div><div class="skeleton h-40"></div><p class="text-center text-xs text-[color:var(--muted)]">يقرأ الصورة، يبحث عن إعلانات مشابهة، ويكتب المشاهد… (20–60 ثانية)</p></div>`;
+  stopStages();
+  $('bar').classList.add('hidden');
+  const t0 = Date.now();
+  const stages = state.mode === 'free' ? STAGES.filter((_, i) => i !== 0) : STAGES;
+  const lens = state.surprise ? `<p class="text-sm text-center rise">🎲 العدسة: <b class="text-[color:var(--gold)]">${esc(state.surprise[0])}</b></p>` : '';
+  $('result').innerHTML = `<div class="panel p-5 space-y-4 rise" id="stages" style="background: radial-gradient(120% 120% at 100% 0%, rgba(232,196,124,.10), var(--panel) 55%);">
+    ${lens}
+    <div class="flex items-center justify-between"><p class="font-bold">المخرج يشتغل على إعلانك 🎬</p><span id="st-time" class="mono text-xs text-[color:var(--muted)]">0s</span></div>
+    <div class="h-1 rounded-full bg-[#151b27] overflow-hidden"><div id="st-bar" class="stage-bar" style="width:4%"></div></div>
+    <ol class="space-y-2.5">${stages.map((x, i) => `<li data-st="${i}" class="flex items-center gap-3 text-sm text-[color:var(--muted)]"><span class="w-7 h-7 rounded-full bg-[#151b27] flex items-center justify-center text-sm shrink-0">${x[0]}</span><span class="flex-1">${x[1]}</span><span class="st-mark text-xs"></span></li>`).join('')}</ol>
+    <p id="st-tip" class="text-xs text-center text-[color:var(--muted)] leading-relaxed border-t border-[color:var(--line)] pt-3">💡 ${TIPS[0]}</p>
+  </div>`;
+  const step = () => {
+    const el = $('stages'); if (!el) return stopStages();
+    const sec = (Date.now() - t0) / 1000;
+    const cur = Math.min(stages.length - 1, Math.floor(sec / 7));
+    el.querySelectorAll('[data-st]').forEach((li) => {
+      const i = +li.dataset.st, m = li.querySelector('.st-mark');
+      li.classList.toggle('text-[color:var(--text)]', i <= cur);
+      li.classList.toggle('font-semibold', i === cur);
+      m.innerHTML = i < cur ? '<span class="text-emerald-300">✓</span>' : i === cur ? '<span class="beat-dot pulse inline-block"></span>' : '';
+    });
+    $('st-time').textContent = Math.floor(sec) + 's';
+    $('st-bar').style.width = Math.min(95, 4 + sec * 1.6) + '%';
+    $('st-tip').textContent = '💡 ' + TIPS[Math.floor(sec / 6) % TIPS.length];
+  };
+  step();
+  stageT = setInterval(step, 500);
+}
+function parseT(t) {
+  const m = String(t || '').replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).match(/(\d+(?:\.\d+)?)\s*(?:s|ث)?\s*[–\-—to]+\s*(\d+(?:\.\d+)?)/);
+  return m ? [Number(m[1]), Number(m[2])] : null;
+}
+function beatsHtml(s, sec) {
+  const b = (s.beats || []).filter((x) => x && (x.ar || x.t));
+  if (!b.length) return '';
+  const spans = b.map((x) => { const p = parseT(x.t); return p && p[1] > p[0] ? p[1] - p[0] : sec / b.length; });
+  return `<div class="space-y-2.5">
+    <div class="flex gap-1" aria-hidden="true">${spans.map((w) => `<div class="seg" style="flex:${w}"></div>`).join('')}</div>
+    <ol class="space-y-2">${b.map((x) => `<li class="flex items-start gap-2.5"><span class="mono text-[11px] text-[color:var(--gold)] w-14 shrink-0 pt-0.5">${esc(x.t || '')}</span><span class="text-[13px] text-[#cfd5df] leading-relaxed">${esc(x.ar || '')}</span></li>`).join('')}</ol>
+  </div>`;
 }
 function copyBtn(key) {
   return `<button type="button" data-copy="${key}" class="tap px-3 rounded-xl chip text-xs font-semibold flex items-center gap-1 shrink-0"><i data-lucide="copy" class="w-3.5 h-3.5"></i>نسخ</button>`;
@@ -400,8 +526,18 @@ function renderResult() {
       <h2 class="text-xl font-bold leading-snug">${esc(idea.title_ar || r.name)}</h2>
       ${idea.logline_ar ? `<p class="text-sm leading-relaxed text-[#cfd5df]">${esc(idea.logline_ar)}</p>` : ''}
       ${idea.why_ar ? `<p class="text-xs leading-relaxed text-[color:var(--muted)]">${esc(idea.why_ar)}</p>` : ''}
-      <p class="text-xs text-[color:var(--muted)]">${esc(OPTS.aspect.values[r.opts.aspect])} · ${r.scenes.length} ${r.scenes.length > 1 ? 'مشاهد' : 'مشهد'} × ${esc(r.opts.secs)} ث · Flow: صورة ← Frames to Video</p>
+      <div class="flex flex-wrap gap-1.5 text-[11px]">
+        <span class="px-2.5 py-1 rounded-full bg-black/30 border border-[color:var(--line)]">⏱ ${r.scenes.length * Number(r.opts.secs)} ث</span>
+        <span class="px-2.5 py-1 rounded-full bg-black/30 border border-[color:var(--line)]">${r.scenes.length} × ${esc(r.opts.secs)} ث</span>
+        <span class="px-2.5 py-1 rounded-full bg-black/30 border border-[color:var(--line)]">${esc(OPTS.aspect.values[r.opts.aspect])}</span>
+        ${OPTS.rhythm.values[r.opts.rhythm] ? `<span class="px-2.5 py-1 rounded-full bg-black/30 border border-[color:var(--line)]">${esc(OPTS.rhythm.values[r.opts.rhythm])}</span>` : ''}
+        ${r.lens ? `<span class="px-2.5 py-1 rounded-full border border-[color:var(--gold)] text-[color:var(--gold)]">🎲 ${esc(r.lens)}</span>` : ''}
+      </div>
     </div>
+
+    <nav class="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1" aria-label="المشاهد">${r.scenes.map((s, i) => `<button type="button" data-jump="${i}" class="shrink-0 w-32 text-right panel p-2.5 hover:border-[color:var(--gold)]">
+      <p class="text-[10px] mono text-[color:var(--gold)]">${i * Number(r.opts.secs)}–${(i + 1) * Number(r.opts.secs)}s</p>
+      <p class="text-xs font-semibold truncate mt-0.5">${i + 1}. ${esc(s.title_ar || 'مشهد')}</p></button>`).join('')}</nav>
 
     <details class="panel">
       <summary class="tap px-5 flex items-center justify-between cursor-pointer list-none text-sm font-semibold"><span>${r.mode === 'free' ? '📝 الفكرة والبحث' : '📦 قراءة المنتج والبحث'}</span><i data-lucide="chevron-down" class="w-4 h-4 text-[color:var(--muted)]"></i></summary>
@@ -413,11 +549,13 @@ function renderResult() {
     </details>
 
     ${r.scenes.map((s, i) => `
-    <article class="panel p-5 space-y-4">
+    <article id="scene-${i}" class="panel p-5 space-y-4 scroll-mt-20 rise ${state.sceneBusy === i ? 'scene-busy' : ''}" style="animation-delay:${i * 60}ms">
       <div class="flex items-start gap-3">
         <span class="w-8 h-8 rounded-full gold-btn text-sm font-bold flex items-center justify-center shrink-0">${i + 1}</span>
-        <div class="min-w-0"><h3 class="font-bold">${esc(s.title_ar || 'مشهد ' + (i + 1))}</h3>${s.beat_ar ? `<p class="text-sm text-[#cfd5df] leading-relaxed mt-0.5">${esc(s.beat_ar)}</p>` : ''}</div>
+        <div class="min-w-0 flex-1"><div class="flex items-center gap-2 flex-wrap"><h3 class="font-bold">${esc(s.title_ar || 'مشهد ' + (i + 1))}</h3><span class="mono text-[11px] px-2 py-0.5 rounded-full bg-[#151b27] text-[color:var(--gold)]">${esc(r.opts.secs)}s</span></div>${s.beat_ar ? `<p class="text-sm text-[#cfd5df] leading-relaxed mt-0.5">${esc(s.beat_ar)}</p>` : ''}</div>
       </div>
+      ${state.sceneBusy === i ? '<p class="text-sm text-center text-[color:var(--gold)]"><span class="beat-dot pulse inline-block ml-2"></span>يطوّر هذا المشهد…</p>' : ''}
+      ${beatsHtml(s, Number(r.opts.secs))}
       <div class="space-y-2">
         <div class="flex items-center justify-between gap-2"><p class="text-xs font-semibold"><span class="text-[color:var(--gold)]">① الصورة</span> <span class="text-[color:var(--muted)]">${esc(s.attach_ar || 'أرفق صورة المنتج')}</span></p>${copyBtn('i' + i)}</div>
         <div class="prompt mono">${esc(s.image_prompt)}</div>
@@ -425,6 +563,12 @@ function renderResult() {
       <div class="space-y-2">
         <div class="flex items-center justify-between gap-2"><p class="text-xs font-semibold"><span class="text-emerald-300">② الفيديو</span> <span class="text-[color:var(--muted)]">Frames to Video · ${words(s.video_prompt)} كلمة</span></p>${copyBtn('v' + i)}</div>
         <div class="prompt mono">${esc(s.video_prompt)}</div>
+        <p class="text-[11px] text-[color:var(--muted)]">في Flow: اختر مدة <b class="text-[color:var(--text)]">${esc(r.opts.secs)} ثواني</b> و${esc(OPTS.aspect.values[r.opts.aspect] || r.opts.aspect)}</p>
+      </div>
+      <div class="flex gap-2 pt-1 border-t border-[color:var(--line)]">
+        <button type="button" data-srev="up" data-i="${i}" class="tap flex-1 mt-3 rounded-xl chip text-sm font-semibold disabled:opacity-50">🔥 أقوى</button>
+        <button type="button" data-srev="alt" data-i="${i}" class="tap flex-1 mt-3 rounded-xl chip text-sm font-semibold disabled:opacity-50">🔄 بديل</button>
+        <button type="button" data-srev="fun" data-i="${i}" class="tap flex-1 mt-3 rounded-xl chip text-sm font-semibold disabled:opacity-50">🤯 أغرب</button>
       </div>
     </article>`).join('')}
 
@@ -460,7 +604,7 @@ async function copyText(text, desc) {
 }
 function fullText(r) {
   const L = [`${(r.idea && r.idea.title_ar) || r.name}`, (r.idea && r.idea.logline_ar) || '', ''];
-  r.scenes.forEach((s, i) => { L.push(`══ مشهد ${i + 1}: ${s.title_ar || ''} ══`, s.beat_ar || '', '', '① IMAGE (Nano Banana) — ' + (s.attach_ar || ''), s.image_prompt, '', '② VIDEO (Frames to Video)', s.video_prompt, ''); });
+  r.scenes.forEach((s, i) => { L.push(`══ مشهد ${i + 1}: ${s.title_ar || ''} (${(r.opts && r.opts.secs) || ''} ث) ══`, s.beat_ar || '', ...(s.beats || []).map((x) => `  ${x.t || ''}  ${x.ar || ''}`), '', '① IMAGE (Nano Banana) — ' + (s.attach_ar || ''), s.image_prompt, '', '② VIDEO (Frames to Video)', s.video_prompt, ''); });
   if (r.voiceover_ar) L.push('══ التعليق الصوتي ══', r.voiceover_ar, '');
   if ((r.onscreen_ar || []).length) L.push('══ نصوص الشاشة ══', ...r.onscreen_ar.map((t) => '• ' + t));
   return L.join('\n');
@@ -512,6 +656,14 @@ document.addEventListener('DOMContentLoaded', () => {
     else if (d.open === 'settings') $('settings').classList.remove('hidden');
     else if (d.close) $(d.close).classList.add('hidden');
     else if (d.opt) { state.opts[d.opt] = d.val; renderQuick(); saveDraft(); }
+    else if (d.jump !== undefined) { const el = $('scene-' + d.jump); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+    else if (d.srev) {
+      const i = +d.i;
+      const ins = { up: 'Make this scene far more powerful: a stronger hook, a more surprising signature moment, tighter choreography, more dramatic camera path and sound hits, a more satisfying hero ending.',
+        alt: 'Replace this scene with a completely different, fresh idea that still fits the story and the scenes around it.',
+        fun: 'Make this scene wildly imaginative and unexpected (surreal transformation, scale shift or impossible physics) while the real product stays accurate and sharp.' }[d.srev];
+      revise(ins, i);
+    }
     else if (d.copy) {
       const r = state.result; if (!r) return;
       const k = d.copy;
@@ -532,7 +684,8 @@ document.addEventListener('DOMContentLoaded', () => {
     catch (err) { toast('تعذّرت قراءة الصورة', '', true); }
   });
   ['name', 'idea'].forEach((id) => $(id).addEventListener('input', saveDraft));
-  $('btn-make').addEventListener('click', make);
+  $('btn-make').addEventListener('click', () => make(false));
+  $('btn-surprise').addEventListener('click', () => make(true));
   $('btn-copy-all').addEventListener('click', () => { if (state.result) { copyText(fullText(state.result), 'كل المشاهد والتعليق والنصوص'); $('copy-all-label').textContent = '✓ تم النسخ'; setTimeout(() => { $('copy-all-label').textContent = 'نسخ الإعلان كاملاً'; }, 1500); } });
   $('btn-revise-jump').addEventListener('click', () => { const b = $('revise-box'); if (b) { b.scrollIntoView({ behavior: 'smooth', block: 'center' }); setTimeout(() => $('revise').focus(), 400); } });
   $('btn-history').addEventListener('click', () => { renderHistory(); $('history').classList.remove('hidden'); });
