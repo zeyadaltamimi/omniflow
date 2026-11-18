@@ -144,6 +144,7 @@ const OPTS = {
   aspect: { label: 'الأبعاد', values: { '9:16': 'رأسي 9:16', '16:9': 'عريض 16:9', '1:1': 'مربع 1:1' }, def: '9:16' },
   scenes: { label: 'عدد المشاهد', values: { '3': '3 مشاهد', '4': '4 مشاهد' }, def: '3' },
   secs: { label: 'مدة المشهد', values: { '6': '6 ث', '8': '8 ث', '10': '10 ث' }, def: '8' },
+  rhythm: { label: 'إيقاع المقطع', values: { oner: 'مشهد متصل مصمم', cuts: 'قطعات متناغمة' }, def: 'oner' },
   creativity: { label: 'جرعة الإبداع', values: { real: 'واقعي', bold: 'مبتكر', wild: 'جريء وخيالي' }, def: 'bold' },
   people: { label: 'الأشخاص', values: { faces: 'يظهر الوجه', nofaces: 'بدون وجوه', none: 'بدون أشخاص' }, def: 'faces' },
   audio: { label: 'الصوت', values: { music: 'مؤثرات + موسيقى', sfx: 'مؤثرات فقط' }, def: 'music' }
@@ -217,8 +218,18 @@ THE IDEA — one concept, not options. It must be specific to THIS product, not 
 - If the user gives an idea, build on it and make it better.
 
 4) EACH SCENE (${o.secs} seconds) gets:
-A. image_prompt — the frozen first frame, 70–120 words, in this order: Shot (lens, angle, framing for ${o.aspect}) → Subject (for product scenes: "the exact product from the attached reference image, same shape, label, colors and proportions") → Environment → Lighting (matching the pack's brand colors) → Style (photorealistic premium commercial photography). No motion verbs.
-B. video_prompt — 45–80 words: begin "Start from the provided image as the first frame. Single continuous shot, no cuts." then ONE precise camera move (slow push-in, 180-degree orbit, macro rack focus, rising drone reveal…) + the physical action with concrete sensory physics (pour, foam, drops, steam, smoke, fabric, light through liquid) + an audio line (${o.audio === 'music' ? 'specific sound effects plus a short music-bed description' : 'specific sound effects and ambience, no music'}; no spoken dialogue). For product scenes add "Keep the product and label exactly as in the first frame."
+A. image_prompt — the frozen first frame that matches the OPENING beat of the video, 70–120 words, in this order: Shot (lens, angle, framing for ${o.aspect}) → Subject (for product scenes: "the exact product from the attached reference image, same shape, label, colors and proportions") → Environment → Lighting (matching the pack's brand colors) → Style (photorealistic premium commercial photography). No motion verbs.
+B. video_prompt — 100–150 words. Each clip is a choreographed mini-film, NOT one static move. It must feel like a real high-end commercial: surprising, rhythmic, precise and smooth.
+${o.rhythm === 'oner'
+    ? `- Begin "Start from the provided image as the first frame. One continuous choreographed shot, no cuts."
+- Write 3–4 beats that flow into each other inside the ${o.secs} seconds, using natural timing ("It opens on…", "as…", "then…", "in the final second…"). The camera follows ONE continuous, motivated path that evolves (e.g. macro push-in that becomes an orbit, then a rising crane reveal), never a random drift.
+- Build transitions inside the shot: a match-move, a whip-through, a focus pull, a light sweep, a reveal from behind a foreground element, or a transformation (drop → mist → ingredients, smoke → setting, beans → dune).`
+    : `- Begin "Start from the provided image as the first frame." then describe a fast, editorial sequence of 3–4 shots inside the ${o.secs} seconds, each joined by a deliberate transition (match cut on shape or motion, whip transition, light-flash cut, morph). Name each shot's framing (macro, close-up, wide, top-down) and keep the product identical across cuts.`}
+- Use speed ramps (slow motion into real time) and interactive physics where the world reacts to the product (liquid forms a crown, fabric unfurls, smoke wraps the product, light ripples across the surface).
+- End on a precise hero frame of the product, perfectly composed and still for the last half-second.
+- Audio line synchronized to the action: specific sound hits on each beat (whoosh, chime, crack, sizzle, splash) ${o.audio === 'music' ? 'over a short cinematic music bed that builds and lands on the final frame' : 'and ambience, no music'}; no spoken dialogue.
+- For product scenes add "Keep the product and label exactly as in the first frame; it stays sharp and fully visible."
+Example of the quality and rhythm expected (do not copy the content): "Start from the provided image as the first frame. One continuous choreographed shot, no cuts. It opens in extreme macro on a single drop sliding down the glass of the perfume bottle; the camera pulls back and arcs around it as the drop falls in slow motion and bursts into a ring of golden mist. As the mist expands it reveals a dark marble majlis forming around the bottle, oud smoke curling upward in warm side light. The camera rises in one smooth crane move while the bottle stays centered and sharp, ramping from slow motion to real time as the cap catches a flash of light, and settles into a perfect hero frame in the final second. Audio: a deep whoosh as the drop falls, a crystalline chime on the burst, soft oud crackle, a rising cinematic pulse that lands on the final frame. Keep the bottle, cap and label exactly as in the first frame; it stays sharp and fully visible. No text, no captions, no subtitles, no watermark."
 Both prompts end with: "No text, no captions, no subtitles, no watermark." Never ask the model to render text, logos or brand names.
 
 People: ${o.people === 'none' ? 'no people at all, product only' : o.people === 'nofaces' ? 'people allowed but no faces: hands, shoulders, back-of-head, silhouettes' : 'people allowed with faces'}; modest, Saudi-appropriate styling, Saudi/Gulf settings when relevant.
@@ -366,7 +377,7 @@ function renderDrop() {
 }
 function renderQuick() {
   const o = state.opts;
-  $('quick-settings').innerHTML = `<span class="text-xs text-[color:var(--muted)]">${OPTS.aspect.values[o.aspect]} · ${o.scenes} مشاهد × ${o.secs} ث · ${OPTS.creativity.values[o.creativity]}</span>
+  $('quick-settings').innerHTML = `<span class="text-xs text-[color:var(--muted)]">${OPTS.aspect.values[o.aspect]} · ${o.scenes} مشاهد × ${o.secs} ث · ${OPTS.rhythm.values[o.rhythm]} · ${OPTS.creativity.values[o.creativity]}</span>
     <button type="button" data-open="settings" class="text-xs text-[color:var(--gold)] underline">تغيير</button>`;
   $('settings-opts').innerHTML = Object.entries(OPTS).map(([k, d]) => `<div class="space-y-1.5"><p class="text-sm font-semibold">${d.label}</p>
     <div class="flex flex-wrap gap-1.5">${Object.entries(d.values).map(([v, l]) => `<button type="button" data-opt="${k}" data-val="${v}" class="chip ${o[k] === v ? 'on' : ''} tap px-3.5 rounded-xl text-sm">${l}</button>`).join('')}</div></div>`).join('');

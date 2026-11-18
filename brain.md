@@ -21,3 +21,11 @@ Signature-moment library (pick or remix, never copy literally):
 Banned clichés: random sparkles, product floating in an empty void without meaning, generic "happy people smiling at the camera", lens flares everywhere, text rendered by the AI.
 
 Every ad must have: a hook in the first 2 seconds, one memorable signature moment, the real product clearly visible and accurate, and an ending on the product.
+
+Motion choreography toolkit (use inside every clip):
+- Camera paths that evolve: macro push-in → orbit → rising crane; low tracking → whip-pan reveal; top-down → tilt-up to hero.
+- In-shot transitions: match-move on a shape (a drop becomes a sun, a ring becomes a coffee cup rim), whip-through, focus pull from foreground to product, light sweep reveal, smoke or fabric wipe.
+- Speed ramps: slow motion on the key physical moment, back to real time for the reveal.
+- The world reacts to the product: liquid crowns, steam rises on cue, fabric unfurls, sand shifts, lights switch on in rhythm.
+- Sound design hits on every beat, landing exactly on the final hero frame.
+- Never a lone slow drift with nothing happening.
