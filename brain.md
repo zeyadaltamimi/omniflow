@@ -29,3 +29,9 @@ Motion choreography toolkit (use inside every clip):
 - The world reacts to the product: liquid crowns, steam rises on cue, fabric unfurls, sand shifts, lights switch on in rhythm.
 - Sound lands exactly on the final hero frame (sound effects only when the user's audio setting includes them).
 - Never a lone slow drift with nothing happening.
+
+Product images (image mode):
+- Main store image: pure white background, product sharp and centered, nothing else — it must pass Salla/Noon/Amazon rules.
+- Every other image in a campaign shares one palette taken from the pack and one hero prop from the product's real ingredients or use.
+- Banners are Arabic right-to-left: product on the left, clean calm space on the right for the headline.
+- Occasions to suggest when they fit: Ramadan, Eid, Saudi National Day (green and white, tasteful), Founding Day, White Friday.

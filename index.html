@@ -63,7 +63,7 @@
     <div class="max-w-xl mx-auto px-4 h-14 flex items-center justify-between">
       <div class="flex items-center gap-2.5">
         <div class="w-8 h-8 rounded-lg gold-btn flex items-center justify-center"><i data-lucide="clapperboard" class="w-4 h-4"></i></div>
-        <div class="leading-tight"><p class="text-[15px] font-bold">OmniFlow Studio</p><p class="text-[11px] text-[color:var(--muted)]">إعلان كامل من صورة منتج · Omni 1.2 Flash</p></div>
+        <div class="leading-tight"><p class="text-[15px] font-bold">OmniFlow Studio</p><p class="text-[11px] text-[color:var(--muted)]">فيديو وصور إعلانية من صورة منتج · v10</p></div>
       </div>
       <div class="flex items-center gap-1">
         <button id="btn-history" type="button" aria-label="السجل" class="tap w-11 rounded-xl hover:bg-white/5 flex items-center justify-center"><i data-lucide="history" class="w-5 h-5 text-[color:var(--muted)]"></i></button>
@@ -77,8 +77,9 @@
     <!-- Input -->
     <section class="space-y-4">
       <div class="flex p-1 rounded-2xl bg-[#0a0d14] border border-[color:var(--line)]" role="tablist">
-        <button type="button" data-mode="product" role="tab" class="mode tap flex-1 rounded-xl text-sm font-semibold">🛍️ إعلان منتج</button>
-        <button type="button" data-mode="free" role="tab" class="mode tap flex-1 rounded-xl text-sm font-semibold">🎬 مشهد حر</button>
+        <button type="button" data-mode="product" role="tab" class="mode tap flex-1 rounded-xl text-sm font-semibold">🎬 فيديو</button>
+        <button type="button" data-mode="images" role="tab" class="mode tap flex-1 rounded-xl text-sm font-semibold">🖼️ صور</button>
+        <button type="button" data-mode="free" role="tab" class="mode tap flex-1 rounded-xl text-sm font-semibold">✍️ مشهد حر</button>
       </div>
       <div id="drop" class="panel overflow-hidden"></div>
       <input id="file" type="file" accept="image/*" class="hidden">
@@ -167,9 +168,22 @@ const OPTS = {
   rhythm: { label: 'إيقاع المقطع', values: { oner: '🎥 لقطة متصلة مصممة', cuts: '✂️ قطعات سريعة متناغمة' }, def: 'oner' },
   creativity: { label: 'جرعة الإبداع', values: { real: '🎯 واقعي', bold: '✨ مبتكر', wild: '🚀 جريء وخيالي' }, def: 'bold' },
   people: { label: 'الأشخاص', values: { faces: 'يظهر الوجه', nofaces: 'بدون وجوه', none: 'بدون أشخاص' }, def: 'faces' },
-  audio: { label: 'الصوت', values: { hype: '🔥 موسيقى حماسية فقط', music: 'موسيقى + مؤثرات', sfx: 'مؤثرات فقط', vo: '🎙️ تعليق عربي داخل المقطع (تجريبي)' }, def: 'hype' }
+  audio: { label: 'الصوت', values: { hype: '🔥 موسيقى حماسية فقط', music: 'موسيقى + مؤثرات', sfx: 'مؤثرات فقط', vo: '🎙️ تعليق عربي داخل المقطع (تجريبي)' }, def: 'hype' },
+  istyle: { label: 'طابع الصور', values: { auto: '🎯 تلقائي من المنتج', luxury: '🖤 فخم', vibrant: '🌈 عصري ملوّن', natural: '🌿 طبيعي دافئ', minimal: '⚪ بسيط نظيف' }, def: 'auto' }
 };
-const DECK = ['flow', 'secs', 'scenes', 'rhythm', 'creativity', 'aspect', 'audio'];
+const DECK = ['flow', 'secs', 'scenes', 'rhythm', 'creativity', 'aspect', 'audio', 'istyle'];
+/* Image outputs: [label, aspect, brief for the model, where it is used] */
+const IMG_TYPES = {
+  main: ['🛍️ الصورة الأساسية', '1:1', 'MAIN STORE IMAGE for the product listing (Salla, Noon, Amazon): the exact product alone, front-facing at a slight 3/4 angle only if it shows the label better, on a pure white (#FFFFFF) seamless background, soft natural contact shadow under it, the product fills about 80% of the frame and is centered, large softbox studio light with clean controlled reflections, every label detail razor sharp. No props, no background color, no scene.', 'صفحة المنتج في المتجر'],
+  hero: ['✨ صورة فاخرة', '4:5', 'HERO / LIFESTYLE IMAGE: the product as the clear hero of a styled premium scene built from its real ingredients, texture or use and its brand colors, editorial lighting with one motivated light source, shallow depth of field, one clear focal point.', 'إنستقرام، الصفحة الرئيسية، الكتالوج'],
+  banner: ['🖥️ بنر المتجر', '16:9', 'WIDE STORE BANNER: the product placed in the LEFT third of the frame (the layout is Arabic, right-to-left), a styled background that continues across the whole width, and a calm, clean, low-detail area across the RIGHT half reserved for an Arabic headline and button added later.', 'سلايدر المتجر وبنر الموقع'],
+  story: ['📱 إعلان ستوري', '9:16', 'VERTICAL STORY AD STILL (Snapchat, TikTok, Instagram Stories): bold scroll-stopping composition, the product in the middle-lower area, dynamic element taken from the product (splash, smoke, foam, beans, fabric), a clean calm area in the top 25% for a headline and the bottom 15% kept simple for the call-to-action.', 'سناب، تيك توك، ستوري'],
+  offer: ['🏷️ إعلان عرض', '4:5', 'PROMOTION / SALE AD for the feed: energetic, high-contrast, celebratory but premium, the product as hero with dynamic elements in its brand colors (ribbons, splash, light streaks, its own ingredients flying), and one clean solid block of space (top or side) for the offer text and price.', 'العروض والخصومات والمناسبات'],
+  detail: ['🔬 صورة الميزة', '1:1', 'FEATURE / INGREDIENT IMAGE: an extreme macro or close-up that explains ONE real benefit visually: the product\'s texture (gel, foam, cream, liquid, fabric, grain) or its real key ingredient arranged around it, clean background, room on one side for a small icon and label added later.', 'صور إضافية في صفحة المنتج'],
+  use: ['🤲 صورة الاستخدام', '4:5', 'IN-USE IMAGE: hands (or a person, following the people rule) using the product the real way it is used, in a premium everyday Saudi/Gulf setting, natural window light, authentic and believable.', 'إقناع العميل بطريقة الاستخدام']
+};
+const IMG_DEF = ['main', 'hero', 'banner', 'story'];
+const IMG_STAGES = [['🔍', 'يقرأ المنتج وتفاصيل الملصق'], ['🌐', 'يبحث عن المنتج وأسلوب إعلاناته'], ['🎨', 'يصمم فكرة بصرية موحّدة للحملة'], ['📐', 'يجهّز كل مقاس واستخدام'], ['✍️', 'يكتب البرومبتات والنصوص العربية']];
 const LENSES = [
   ['🔬 عالم مجهري', 'MACRO WORLD: the camera dives into the product\'s real texture or ingredient and discovers a whole landscape inside it, then pulls out to the hero product.'],
   ['🧸 عالم مصغّر', 'SCALE SHIFT: the product becomes a giant monument in a miniature world (tiny people, tiny city or desert) that reacts to it.'],
@@ -184,14 +198,16 @@ const LENSES = [
   ['🎨 فن متحرك', 'LIVING ART: the scene behaves like a moving artwork — paint, ink in water, paper folding, sculpture forming — that resolves into the real product.'],
   ['⏳ زمن متجمد', 'FROZEN TIME: time freezes mid-action (splash, spray, falling objects) and the camera travels through the frozen moment before time snaps back on the product.']
 ];
-const STAGES = [['🔍', 'يقرأ المنتج من الصورة'], ['🌐', 'يبحث عن مكوناته وفوائده وإعلانات مشابهة'], ['💡', 'يبتكر الأفكار ويختار أقواها'], ['🎬', 'يصمم حركة كل مشهد'], ['✍️', 'يكتب البرومبتات والتعليق']];
+const STAGES = [['🔍', 'يقرأ المنتج من الصورة'], ['🌐', 'يبحث عن مكوناته وفوائده وإعلانات مشابهة'], ['💡', 'يبتكر الأفكار ويختار أقواها'], ['🎬', 'يصمم حركة كل مشهد'], ['✍️', 'يكتب البرومبتات والتعليق'], ['✅', 'يفحص الدقة ويصلح الأخطاء']];
 const TIPS = ['في Flow: أرفق صورة المنتج كمرجع، والصق البرومبت، واختر نفس المدة.', 'اختر Omni 1.2 Flash وجرّب على 360p أول، وإذا عجبك ارفعه 720p.', 'لو طلع خطأ بسيط لا تعيد التوليد: استخدم برومبتات «إصلاح سريع» تحت كل مشهد.', 'مشهد الختام: أرفق نفس الصورة كإطار أول وأخير عشان المنتج يطلع مضبوط.', 'اختر في Flow نفس مدة المشهد اللي اخترتها هنا.', 'لو طلع المنتج مختلف، أعد التوليد بنفس البرومبت مرة ثانية.', 'التعليق الصوتي والنصوص تضيفها في المونتاج لأن الذكاء يخرب الكتابة.', 'الضغطة على «🔥 أقوى» تطوّر مشهد واحد بدون ما تمس الباقي.', 'جرّب «🎲 فاجئني» لما تبي فكرة ما خطرت على بالك.'];
+const IMG_TIPS = ['في Flow أو Gemini: أرفق صورة المنتج والصق برومبت الصورة.', 'اختر Nano Banana Pro للدقة في الملصق.', 'لو تغيّر الملصق لا تعيد من الصفر: استخدم «إصلاح سريع» تحت الصورة.', 'الصورة الأساسية بخلفية بيضاء جاهزة لسلة ونون وأمازون.', 'النصوص العربية تضيفها في Canva، والمساحة محجوزة لها في الصورة.', 'ولّد كل صورة 2–4 مرات واختر الأفضل.'];
 const beatsFor = (sec) => sec <= 4 ? 2 : sec <= 6 ? 3 : sec <= 10 ? '3–4' : '4–6';
 const wordsFor = (sec) => sec <= 4 ? '110–150' : sec <= 6 ? '140–190' : sec <= 8 ? '170–230' : '200–270';
 const imgWordsFor = () => '110–170';
 const shotsFor = (sec) => sec <= 6 ? '5–7' : sec <= 10 ? '8–11' : '11–14';
 const wordsSingle = (sec) => sec <= 6 ? '170–230' : sec <= 10 ? '230–320' : '300–400';
-const state = { img: null, opts: {}, result: null, busy: false, sources: [], mode: 'product', brain: '', surprise: null, sceneBusy: -1 };
+const state = { img: null, opts: {}, result: null, busy: false, sources: [], mode: 'product', brain: '', surprise: null, sceneBusy: -1, imgSel: IMG_DEF.slice() };
+const isImages = () => state.mode === 'images';
 
 /* Models: preferred order (quality/price). The list from the API replaces this when available. */
 const MODEL_PREF = ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-3-flash-preview', 'gemini-2.5-flash-lite'];
@@ -238,6 +254,7 @@ Object.keys(OPTS).forEach((k) => { state.opts[k] = OPTS[k].def; });
 
 /* ---------------- The brain: skill + creative direction ---------------- */
 function systemPrompt() {
+  if (isImages()) return imagesPrompt();
   const o = state.opts;
   const creat = state.surprise ? 'wild' : o.creativity;
   const sec = Number(o.secs);
@@ -253,7 +270,9 @@ function systemPrompt() {
 
 2) RESEARCH with Google Search: (a) the product itself: its active ingredients, what each one does, its real benefits and how it is used (dose, routine, texture, smell); (b) how successful brands advertise this kind of product (Saudi/Gulf first, then the best global work, current TikTok/Instagram/Snapchat trends). Steal the logic, never copy. Health claims must match reliable sources and the pack.
 
-3) CREATIVE ENGINE: before writing, silently brainstorm at least 8 very different concepts through these lenses: the real problem the product solves shown in an everyday Saudi moment; sensory macro world of the product's texture/ingredient; transformation or morph (problem → relief, raw ingredient → product); scale shift; a Saudi/Gulf ritual; a story with a twist; satisfying ASMR physics; the product's point of view; an elemental metaphor from what the product is or does. Score each on: hook in the first 2 seconds, fit with THIS product and its researched benefit, how reliably Omni 1.2 Flash can render it, memorability. Keep the single best one. Creativity level: ${level}.
+3) CREATIVE ENGINE: before writing, silently brainstorm at least 8 very different concepts through these lenses: the real problem the product solves shown in an everyday Saudi moment; sensory macro world of the product's texture/ingredient; transformation or morph (problem → relief, raw ingredient → product); scale shift; a Saudi/Gulf ritual; a story with a twist; satisfying ASMR physics; the product's point of view; an elemental metaphor from what the product is or does. Also consider these director lenses and use one when it makes the idea fresher: ${LENSES.map((l) => l[1].split(':')[0]).join(', ')}. Score each concept on: hook in the first 2 seconds, fit with THIS product and its researched benefit, how reliably Omni 1.2 Flash can render it, memorability, and originality (never the obvious first idea; if the user message lists previous ideas for this product, the new one must be clearly different from all of them). Keep the single best one. Creativity level: ${level}.
+
+PRODUCT DNA (accuracy lock): before writing prompts, write "product_dna": ONE precise English description of the product as it appears in the photo (45–80 words): object type and silhouette, material and finish, exact colors (name them precisely, e.g. "matte navy blue", "brushed gold"), cap/lid/closure, contents color if visible, label layout (where each element sits), every legible Latin word in single quotes exactly as printed, Arabic or tiny text as "small printed text, unchanged", and the size/proportions. Use this DNA word-for-word wherever the product is described (the PRODUCT section, image prompts, Keep unchanged lines), so the product never drifts between prompts.
 
 THE IDEA: one concept, not options, specific to THIS product:
 - A hook in the first 2 seconds (a relatable problem caught in the act, a striking contrast, or a satisfying physical moment).
@@ -292,7 +311,7 @@ Category hints: candle/home fragrance (match, flame, melt pool, botanical); perf
 
 The prompt (English, the "video_prompt" field, ${wordsSingle(sec)} words) must use EXACTLY these labeled sections, each on its own line:
 CONTEXT: "A ${sec}-second photorealistic luxury [category] commercial, vertical ${o.aspect}." number of shots, cut style (fast cuts of about a second, macro-led and cinematic), when people appear.
-PRODUCT: "The attached image is the exact product reference." then its precise visual identity (materials, colors, shape, cap/rim/base, contents) and the label words spelled exactly in quotes with their style (e.g. "lavender" in gold script). End with "Never redesigned, never relabeled."
+PRODUCT: "The attached image is the exact product reference." then the product_dna word-for-word, plus the style of the label words (e.g. "lavender" in gold script). End with "Never redesigned, never relabeled."
 THE LOOK: mood in 3 words, a tight 2–3 color palette taken from the product against a chosen background, one motivated light source, and "[X] is the only botanical/prop."
 SHOTS: one line per shot "0-1.3s ...", action first, framing and camera in few words.
 SOUND: ${o.audio === 'hype' ? 'music only: one energetic, driving trailer-style track (name the genre and BPM) that builds to the flash burst, hits on the cuts and lands with a final hit on the hero frame. No sound effects, no dialogue, no voice.' : o.audio === 'music' ? 'a trailer bed building to the flash burst then a warm resolving chord, plus the real sounds of the trigger and ingredient moments (match crack, spray hiss, pour, foam). No dialogue.' : o.audio === 'sfx' ? 'no music; only the real sounds of each moment. No dialogue.' : `an off-screen Gulf Arabic voice-over line in quotes (about ${Math.round(sec * 2)} words, describe the voice) over a soft music bed; the people on screen do not speak.`}
@@ -327,6 +346,7 @@ Health, pharmacy and cosmetic products: no cure or guarantee language ("cures", 
 
 ${state.brain ? `House rules from the user's brain file (follow them):\n${state.brain}\n\n` : ''}Reply with ONLY one JSON object, no markdown:
 {"product_read_ar": string (3–6 short Arabic lines: name/type, visual identity, printed words, ingredients and what each does, unclear items),
+ "product_dna": string (English, see PRODUCT DNA; "" in free scene mode),
  "research_ar": [3–5 short Arabic insights: real benefits/ingredients of this product and what similar ads do],
  "idea": {"title_ar": string, "logline_ar": string (one sentence), "hook_ar": string (the first 2 seconds), "signature_ar": string (the signature moment), "why_ar": string (why it fits this product)},
  "scenes": [{"title_ar": string, "beat_ar": string (one Arabic line describing the scene), "attach_ar": string (what to attach for the IMAGE step), "beats": [{"t": "0–2s", "ar": string (short Arabic description of this beat: camera + action)}] (${beatsFor(sec)} beats covering exactly 0–${sec}s, matching the video_prompt timeline), "image_prompt": string, "video_prompt": string, "last_frame": boolean, "fixes": [{"ar": string (the problem in Arabic, few words), "prompt": string (English edit prompt)}]}],
@@ -335,10 +355,70 @@ ${state.brain ? `House rules from the user's brain file (follow them):\n${state.
  "notes_ar": [string (compliance or production tips, optional)]}`;
 }
 
+/* ---------------- Images brain: one campaign look, several ready image prompts ---------------- */
+function imagesPrompt() {
+  const o = state.opts;
+  const style = { auto: 'chosen by you from the product, its brand colors and its market', luxury: 'luxury: deep dark tones, gold or metallic accents, dramatic low-key light, marble, silk or stone surfaces', vibrant: 'modern and colorful: bold saturated colors from the pack, playful dynamic elements, bright high-key light', natural: 'natural and warm: real ingredients, wood, linen, soft morning sunlight, earthy palette', minimal: 'minimal and clean: one or two soft tones, lots of negative space, soft even light, simple geometric props' }[o.istyle] || 'chosen by you';
+  return `You are a senior e-commerce and advertising art director and a specialist prompt engineer for Google's image model Nano Banana Pro (Gemini 3 Pro Image), used in Google Flow and the Gemini app with the product photo attached as a reference. From a product photo (and/or name) and an optional Arabic idea, you create a small, consistent CAMPAIGN of product images, delivered as ready-to-paste English prompts.
+
+1) READ THE PRODUCT (from the photo): name, brand, size, type; exact visual identity; every word printed and legible on the pack, spelled exactly; claims and ingredients actually printed. Never invent ingredients or claims; mark cut-off text as unclear.
+
+2) RESEARCH with Google Search: the product's real ingredients/benefits/use, and how strong brands photograph and advertise this kind of product (Saudi/Gulf first, then the best global work). Steal the logic, never copy.
+
+3) PRODUCT DNA (accuracy lock): write "product_dna": ONE precise English description of the product as it appears in the photo (45–80 words): object type and silhouette, material and finish, exact colors named precisely, cap/lid/closure, contents color if visible, label layout, every legible Latin word in single quotes exactly as printed, Arabic or tiny text as "small printed text, unchanged", proportions. Use it word-for-word in every prompt.
+
+4) CAMPAIGN CONCEPT: silently brainstorm 5 visual directions and keep the most original one that fits THIS product (never the obvious first idea; if the user lists previous ideas for this product, be clearly different). One concept ties every image together: the same palette (2–3 colors taken from the pack), the same hero prop or ingredient, the same light mood. The MAIN store image is the exception: always pure white background. Visual style: ${style}. If the user gives an idea or an occasion (offer, Ramadan, National Day, Eid), build on it.
+
+5) NANO BANANA PRO RULES (follow all):
+- Write natural, descriptive sentences like a photography brief, not keyword lists.
+- Start every prompt with: "Using the attached image as the exact product reference," then describe the scene.
+- Then the product_dna, then: "Keep the product exactly as in the reference: same shape, proportions, cap, label layout, colors and printed words. Do not redesign, relabel or add new text to it."
+- State the aspect ratio and the composition: where the product sits in the frame, how much of the frame it fills, camera angle, lens feel (e.g. 85mm, 100mm macro), depth of field.
+- Lighting: key light direction and quality, rim/accent light, reflections controlled on glossy surfaces, realistic contact shadow so the product sits on the surface (never floating unless the concept asks for it).
+- Background, surface and props: specific materials, only props that come from the product's real ingredients or use; no clutter.
+- Text space: when the output needs text, say exactly where to leave a clean, calm, low-detail area. The AI must NOT write any text: Arabic text comes out broken, so all headlines are added later in Canva or Photoshop.
+- Style line: "photorealistic commercial product photography, ultra-detailed, sharp focus on the label, 4K".
+- People (when present): ${o.people === 'none' ? 'no people at all, product only' : o.people === 'nofaces' ? 'hands only or faces out of frame' : 'allowed, faces allowed'}; modest, Saudi-appropriate styling.
+- End every prompt with: "No added text, letters, numbers, logos or watermarks other than the product's own label."
+- Length: 90–170 words per prompt.
+- Health, pharmacy and cosmetic products: no cure or guarantee claims in the Arabic copy; no medical before/after images.
+- Real estate: the photo is the exact property; never add or change buildings.
+
+6) FOR EACH REQUESTED OUTPUT write: the prompt, short Arabic marketing copy to add in editing (headline 2–5 words, sub line up to 10 words, call to action 1–3 words; Saudi/Gulf friendly, compliant, empty strings for the MAIN store image), and 2 one-change edit prompts for Nano Banana's conversational editing for this image's most likely failures (label misspelled or changed, product shape drift, too busy background, wrong text space), each ending with "Keep everything else exactly the same."
+
+${state.brain ? `House rules from the user's brain file (follow the ones that apply to still images):\n${state.brain}\n\n` : ''}Reply with ONLY one JSON object, no markdown:
+{"product_read_ar": string (3–6 short Arabic lines),
+ "product_dna": string,
+ "research_ar": [3–5 short Arabic insights],
+ "concept": {"title_ar": string, "logline_ar": string (one sentence), "palette_ar": string (the colors and the hero prop), "why_ar": string},
+ "images": [{"type": string (the output key exactly as given), "title_ar": string, "idea_ar": string (one Arabic line describing this image), "aspect": string, "prompt": string, "copy_ar": {"headline": string, "sub": string, "cta": string}, "fixes": [{"ar": string (the problem in Arabic, few words), "prompt": string}]}] (one item per requested output, in the same order),
+ "notes_ar": [string (optional tips)]}`;
+}
+
+function previousIdeas() {
+  const n = $('name').value.trim();
+  if (!n) return '';
+  const t = store.get('of7_history', []).filter((h) => h.name === n).map((h) => (h.idea && h.idea.title_ar) || (h.concept && h.concept.title_ar)).filter(Boolean).slice(0, 6);
+  return t.length ? `Previous ideas already made for this product (make something clearly different): ${t.join(' | ')}` : '';
+}
+
 function userParts(extra) {
   const parts = [];
   if (state.img) parts.push({ inlineData: { mimeType: 'image/jpeg', data: state.img.full.split(',')[1] } });
+  if (isImages()) {
+    parts.push({ text: [
+      `Product name (Arabic): ${$('name').value.trim() || '(read it from the photo)'}`,
+      `User idea (Arabic): ${$('idea').value.trim() || 'none — invent the best concept'}`,
+      `Reference photo attached: ${state.img ? 'yes' : 'no'}`,
+      `Requested outputs, in this order (key, aspect ratio, brief):\n${state.imgSel.map((k) => `- ${k} (${IMG_TYPES[k][1]}): ${IMG_TYPES[k][2]}`).join('\n')}`,
+      state.surprise ? `SURPRISE ME — build the campaign look through this creative lens (the main store image stays pure white): ${state.surprise[1]}` : '',
+      extra ? '' : previousIdeas(),
+      extra || ''
+    ].filter(Boolean).join('\n') });
+    return parts;
+  }
   parts.push({ text: [
+    extra || state.mode === 'free' ? '' : previousIdeas(),
     state.mode === 'free' ? 'Mode: free scene (no product).' : `Product name (Arabic): ${$('name').value.trim() || '(read it from the photo)'}`,
     `User idea (Arabic): ${$('idea').value.trim() || 'none — invent the best idea'}`,
     `Reference photo attached: ${state.img ? (state.mode === 'free' ? 'yes (use it as the visual reference for the scene)' : 'yes') : 'no'}`,
@@ -385,6 +465,54 @@ async function callGemini(parts, search, tried) {
   return { json, sources };
 }
 
+/* ---------------- Quality check: catches the mistakes that make Omni drift, then auto-repairs once ---------------- */
+function timecodes(text) {
+  const out = [];
+  const re = /\[?\s*(\d+(?:\.\d+)?)\s*s?\s*[-–—]\s*(\d+(?:\.\d+)?)\s*s\s*\]?/g;
+  let m; while ((m = re.exec(text))) out.push([Number(m[1]), Number(m[2])]);
+  return out;
+}
+function qaVideo(j, o) {
+  const sec = Number(o.secs), single = o.flow === 'single';
+  const issues = [], checks = [];
+  (j.scenes || []).forEach((s, i) => {
+    const vp = String(s.video_prompt || ''), tag = (j.scenes.length > 1 ? `Scene ${i + 1}: ` : '');
+    const tc = timecodes(single ? (vp.split(/\bSHOTS:/i)[1] || vp).split(/\bSOUND:/i)[0] : vp);
+    let tcOk = tc.length >= 2 && Math.abs(tc[0][0]) < 0.05 && Math.abs(tc[tc.length - 1][1] - sec) < 0.05;
+    for (let k = 1; tcOk && k < tc.length; k++) if (Math.abs(tc[k][0] - tc[k - 1][1]) > 0.05 || tc[k][1] <= tc[k][0]) tcOk = false;
+    if (!tcOk) issues.push(`${tag}the timecodes must be contiguous blocks from 0 to exactly ${sec}s with no gaps or overlaps (found: ${tc.map((x) => x[0] + '-' + x[1] + 's').join(', ') || 'none'}).`);
+    if (single) {
+      const miss = ['CONTEXT:', 'PRODUCT:', 'THE LOOK:', 'SHOTS:', 'SOUND:', 'NEGATIVE:'].filter((h) => !vp.toUpperCase().includes(h));
+      if (miss.length) issues.push(`${tag}missing sections: ${miss.join(' ')}`);
+      if (single && tc.length && tc.length < Math.round(sec * 0.6)) issues.push(`${tag}only ${tc.length} shots; plan ${shotsFor(sec)} shots.`);
+    } else {
+      if (!/Audio:/i.test(vp)) issues.push(`${tag}missing the "Audio:" line.`);
+      if (!/Keep unchanged:/i.test(vp)) issues.push(`${tag}missing the "Keep unchanged:" line.`);
+    }
+    if (state.mode !== 'free' && j.product_dna) {
+      const quoted = (j.product_dna.match(/'([^']{2,40})'/g) || []).map((q) => q.slice(1, -1));
+      const lost = quoted.filter((q) => !vp.includes(q) && !(s.image_prompt || '').includes(q));
+      if (lost.length) issues.push(`${tag}the label words ${lost.map((q) => "'" + q + "'").join(', ')} from product_dna must appear exactly in the prompt.`);
+    }
+    const w = words(vp), lim = (single ? wordsSingle(sec) : wordsFor(sec)).split('–').map(Number);
+    if (w < lim[0] * 0.75) issues.push(`${tag}too short (${w} words); write ${lim.join('–')} words.`);
+    if (w > lim[1] * 1.35) issues.push(`${tag}too long (${w} words); keep it to ${lim.join('–')} words, critical things first.`);
+    checks.push({ tc: tcOk, shots: tc.length, words: w });
+  });
+  if (state.mode !== 'free' && !String(j.product_dna || '').trim()) issues.push('product_dna is empty.');
+  return { issues, checks };
+}
+function qaImages(j) {
+  (j.images || []).forEach((im) => {
+    let p = String(im.prompt || '').trim();
+    if (!/attached image/i.test(p)) p = 'Using the attached image as the exact product reference, ' + p;
+    if (!/Keep the product exactly/i.test(p)) p += ' Keep the product exactly as in the reference: same shape, proportions, cap, label layout, colors and printed words. Do not redesign, relabel or add new text to it.';
+    if (!/No added text/i.test(p)) p += ' No added text, letters, numbers, logos or watermarks other than the product\'s own label.';
+    im.prompt = p;
+    if (IMG_TYPES[im.type] && !im.aspect) im.aspect = IMG_TYPES[im.type][1];
+  });
+}
+
 async function generate(extra) {
   let out;
   try { out = await callGemini(userParts(extra), true); }
@@ -392,10 +520,28 @@ async function generate(extra) {
     if (/abort/i.test(String(e))) throw new Error('انتهت المهلة، جرّب مرة ثانية');
     out = await callGemini(userParts(extra), false);
   }
-  const j = out.json;
+  let j = out.json;
+  const base = { sources: out.sources, mode: state.mode, name: state.mode === 'free' ? 'مشهد حر' : $('name').value.trim(), idea_in: $('idea').value.trim(), opts: { ...state.opts }, lens: state.surprise ? state.surprise[0] : '', time: Date.now() };
+  if (isImages()) {
+    if (!j.images || !j.images.length) throw new Error('ما رجعت صور، جرّب مرة ثانية');
+    qaImages(j);
+    return { ...j, ...base, kind: 'images' };
+  }
   if (!j.scenes || !j.scenes.length) throw new Error('ما رجعت مشاهد، جرّب مرة ثانية');
   if (state.opts.flow === 'single') { j.scenes = j.scenes.slice(0, 1); j.scenes[0].image_prompt = ''; j.scenes[0].last_frame = false; }
-  return { ...j, sources: out.sources, mode: state.mode, name: state.mode === 'free' ? 'مشهد حر' : $('name').value.trim(), idea_in: $('idea').value.trim(), opts: { ...state.opts }, lens: state.surprise ? state.surprise[0] : '', time: Date.now() };
+  let qa = qaVideo(j, state.opts), fixed = 0;
+  if (qa.issues.length) {
+    try {
+      const rep = await callGemini(userParts(`Here is your ad (JSON):\n${JSON.stringify(j)}\n\nA quality check found these problems. Fix ONLY them, keep the idea and everything that is correct, and return the full JSON in the same format:\n- ${qa.issues.join('\n- ')}`), false);
+      const j2 = rep.json;
+      if (j2.scenes && j2.scenes.length) {
+        if (state.opts.flow === 'single') { j2.scenes = j2.scenes.slice(0, 1); j2.scenes[0].image_prompt = ''; j2.scenes[0].last_frame = false; }
+        const qa2 = qaVideo(j2, state.opts);
+        if (qa2.issues.length <= qa.issues.length) { fixed = qa.issues.length - qa2.issues.length; j = j2; qa = qa2; }
+      }
+    } catch (e) {}
+  }
+  return { ...j, ...base, kind: 'video', qa: { left: qa.issues.length, fixed, checks: qa.checks } };
 }
 
 /* ---------------- Actions ---------------- */
@@ -403,9 +549,10 @@ async function make(surprise) {
   if (state.busy) return;
   state.surprise = surprise ? LENSES[Math.floor(Math.random() * LENSES.length)] : null;
   if (!store.get('of_key', '')) { $('settings').classList.remove('hidden'); toast('أضف مفتاح Gemini أولاً', '', true); return; }
-  if (state.mode === 'product' && !state.img && !$('name').value.trim()) { toast('أضف صورة المنتج أو اسمه', '', true); return; }
+  if (state.mode !== 'free' && !state.img && !$('name').value.trim()) { toast('أضف صورة المنتج أو اسمه', '', true); return; }
+  if (isImages() && !state.imgSel.length) { toast('اختر صورة وحدة على الأقل', '', true); return; }
   if (state.mode === 'free' && !$('idea').value.trim()) { toast('اكتب فكرة المشهد', '', true); $('idea').focus(); return; }
-  setBusy(true, state.surprise ? 'يجهّز لك مفاجأة…' : 'يصنع الإعلان…');
+  setBusy(true, state.surprise ? 'يجهّز لك مفاجأة…' : isImages() ? 'يصمم الصور…' : 'يصنع الإعلان…');
   if (state.surprise) toast('🎲 العدسة: ' + state.surprise[0], 'فكرة جريئة غير متوقعة');
   renderSkeleton();
   try {
@@ -426,18 +573,22 @@ async function make(surprise) {
 async function revise(instruction, sceneIdx) {
   if (state.busy || !state.result || !instruction.trim()) return;
   const one = sceneIdx !== undefined;
-  setBusy(true, one ? `يطوّر المشهد ${sceneIdx + 1}…` : 'يعدّل الإعلان…');
+  setBusy(true, one ? (state.result.kind === 'images' ? `يطوّر الصورة ${sceneIdx + 1}…` : `يطوّر المشهد ${sceneIdx + 1}…`) : 'يعدّل…');
   if (one) { state.sceneBusy = sceneIdx; renderResult(); }
   const old = state.result;
-  const prev = { ...old }; delete prev.sources; delete prev.lens;
+  const prev = { ...old }; delete prev.sources; delete prev.lens; delete prev.qa; delete prev.thumb;
   if (old.opts) state.opts = { ...state.opts, ...old.opts };
+  const img = old.kind === 'images';
+  if (img) { state.mode = 'images'; state.imgSel = old.images.map((x) => x.type).filter((k) => IMG_TYPES[k]); }
+  else if (isImages()) state.mode = old.mode === 'free' ? 'free' : 'product';
+  const list = img ? 'images' : 'scenes';
   try {
-    const r = await generate(`Here is the current ad (JSON):\n${JSON.stringify(prev)}\n\nChange request: ${instruction}\n${one ? `Rewrite ONLY scene ${sceneIdx + 1} (title, beat, beats, image_prompt, video_prompt). Keep it connected to the scenes before and after it. Copy every other scene exactly as it is.` : 'Apply the change, keep everything else that still works.'} Keep the same JSON format.`);
+    const r = await generate(`Here is the current ${img ? 'image campaign' : 'ad'} (JSON):\n${JSON.stringify(prev)}\n\nChange request: ${instruction}\n${one ? (img ? `Rewrite ONLY image ${sceneIdx + 1} (title_ar, idea_ar, prompt, copy_ar, fixes). Keep the campaign look. Copy every other image exactly as it is.` : `Rewrite ONLY scene ${sceneIdx + 1} (title, beat, beats, image_prompt, video_prompt). Keep it connected to the scenes before and after it. Copy every other scene exactly as it is.`) : 'Apply the change, keep everything else that still works.'} Keep the same JSON format.`);
     if (!r.sources.length) r.sources = old.sources || [];
     if (one) {
-      const ns = r.scenes[sceneIdx] || r.scenes[r.scenes.length - 1];
-      r.scenes = old.scenes.map((x, i) => i === sceneIdx ? ns : x);
-      ['idea', 'voiceover_ar', 'onscreen_ar', 'product_read_ar', 'research_ar'].forEach((k) => { if (old[k] !== undefined) r[k] = old[k]; });
+      const ns = r[list][sceneIdx] || r[list][r[list].length - 1];
+      r[list] = old[list].map((x, i) => i === sceneIdx ? ns : x);
+      ['idea', 'concept', 'product_dna', 'voiceover_ar', 'onscreen_ar', 'product_read_ar', 'research_ar'].forEach((k) => { if (old[k] !== undefined) r[k] = old[k]; });
     }
     r.lens = old.lens || '';
     r.time = old.time;
@@ -446,7 +597,7 @@ async function revise(instruction, sceneIdx) {
     saveHistory();
     renderResult();
     if (one) setTimeout(() => { const el = $('scene-' + sceneIdx); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 50);
-    toast(one ? `تم تطوير المشهد ${sceneIdx + 1}` : 'تم التعديل', '');
+    toast(one ? (img ? `تم تطوير الصورة ${sceneIdx + 1}` : `تم تطوير المشهد ${sceneIdx + 1}`) : 'تم التعديل', '');
   } catch (e) { state.sceneBusy = -1; renderResult(); toast('تعذّر التعديل', String(e.message || e).slice(0, 140), true); }
   setBusy(false);
 }
@@ -468,8 +619,9 @@ function renderMode() {
   $('idea-label').textContent = free ? 'اكتب المشهد بالعربي' : 'فكرتك';
   $('idea-sub').textContent = free ? 'وش يصير، ومين، ووين، وأي قيود مثل «بدون وجه»' : 'اختياري، اتركها ويبتكر لك';
   $('idea').rows = free ? 4 : 2;
-  $('idea').placeholder = free ? 'مثال: بدوي يمشي في صحراء قاحلة ومعه حصان يمسكه باللجام، الكاميرا من الخلف بدون وجه، يغني وهو حزين والشمس غايبة' : 'مثال: أبيه فخم وفيه مجلس، أو: المساحة 450م² وتظهر على العقار';
+  $('idea').placeholder = free ? 'مثال: بدوي يمشي في صحراء قاحلة ومعه حصان يمسكه باللجام، الكاميرا من الخلف بدون وجه، يغني وهو حزين والشمس غايبة' : isImages() ? 'مثال: ألوان ذهبية فخمة، أو: عرض 30% بمناسبة اليوم الوطني' : 'مثال: أبيه فخم وفيه مجلس، أو: المساحة 450م² وتظهر على العقار';
   renderDrop();
+  renderQuick();
 }
 function renderDrop() {
   $('drop').innerHTML = state.img
@@ -481,15 +633,41 @@ function renderDrop() {
     : `<button type="button" data-act="upload" class="w-full py-9 flex flex-col items-center gap-2 hover:bg-white/[.02]">
         <span class="w-14 h-14 rounded-2xl bg-[#151b27] flex items-center justify-center"><i data-lucide="image-plus" class="w-7 h-7 text-[color:var(--gold)]"></i></span>
         <span class="font-semibold">${state.mode === 'free' ? 'صورة مرجعية (اختياري)' : 'ارفع صورة المنتج'}</span>
-        <span class="text-xs text-[color:var(--muted)]">${state.mode === 'free' ? 'شخص أو مكان تبيه يظهر في المشهد' : 'يقرأ منها الشكل والمكونات ويحافظ عليها في الفيديو'}</span></button>`;
+        <span class="text-xs text-[color:var(--muted)]">${state.mode === 'free' ? 'شخص أو مكان تبيه يظهر في المشهد' : isImages() ? 'يحافظ على شكل المنتج وملصقه في كل الصور' : 'يقرأ منها الشكل والمكونات ويحافظ عليها في الفيديو'}</span></button>`;
   icons();
 }
 function renderMakeLabel() {
   if (state.busy) return;
+  if (isImages()) { $('make-label').textContent = `${state.result && state.result.kind === 'images' ? 'صمّم صوراً جديدة' : 'صمّم الصور'} · ${state.imgSel.length}`; return; }
   const total = (state.opts.flow === 'single' ? 1 : Number(state.opts.scenes)) * Number(state.opts.secs);
   $('make-label').textContent = `${state.result ? 'اصنع إعلاناً جديداً' : 'اصنع الإعلان'} · ${total} ث`;
 }
+function renderSettingsOpts() {
+  const o = state.opts;
+  $('settings-opts').innerHTML = Object.entries(OPTS).filter(([k]) => !DECK.includes(k)).map(([k, d]) => `<div class="space-y-1.5"><p class="text-sm font-semibold">${d.label}</p>
+    <div class="flex flex-wrap gap-1.5">${Object.entries(d.values).map(([v, l]) => `<button type="button" data-opt="${k}" data-val="${v}" class="chip ${o[k] === v ? 'on' : ''} tap px-3.5 rounded-xl text-sm">${l}</button>`).join('')}</div></div>`).join('');
+}
+function renderImgDeck() {
+  const o = state.opts;
+  $('deck').innerHTML = `
+    <div class="flex items-end justify-between gap-3">
+      <div><p class="text-xs text-[color:var(--muted)]">الصور المطلوبة</p><p class="text-2xl font-bold leading-none mt-1"><span class="text-[color:var(--gold)]">${state.imgSel.length}</span> <span class="text-sm font-semibold">صور بنفس الهوية</span></p></div>
+      <p class="text-xs text-[color:var(--muted)] text-left">Nano Banana Pro<br>${esc(OPTS.istyle.values[o.istyle])}</p>
+    </div>
+    <div class="grid grid-cols-2 gap-1.5">${Object.entries(IMG_TYPES).map(([k, v]) => { const on = state.imgSel.includes(k); return `<button type="button" data-img="${k}" aria-pressed="${on}" class="deck-chip ${on ? 'on' : ''} rounded-xl text-sm px-2.5 py-2 text-right leading-tight"><span class="block">${v[0]}</span><span class="block text-[10px] mono opacity-70 mt-0.5">${v[1]}</span></button>`; }).join('')}</div>
+    <details class="pt-1"><summary class="tap flex items-center justify-between cursor-pointer list-none text-xs font-semibold text-[color:var(--muted)]"><span>⚙️ تخصيص (اختياري) · ${esc(OPTS.istyle.values[o.istyle])}</span><i data-lucide="chevron-down" class="w-4 h-4"></i></summary>
+    <div class="pt-2 space-y-3.5">
+      <div class="space-y-1.5"><p class="text-xs font-semibold text-[color:var(--muted)]">${OPTS.istyle.label}</p><div class="flex flex-wrap gap-1.5">${Object.entries(OPTS.istyle.values).map(([v, l]) => `<button type="button" data-opt="istyle" data-val="${v}" class="deck-chip ${o.istyle === v ? 'on' : ''} px-3 rounded-xl text-sm">${l}</button>`).join('')}</div></div>
+      <div class="space-y-1.5"><p class="text-xs font-semibold text-[color:var(--muted)]">${OPTS.people.label}</p><div class="flex flex-wrap gap-1.5">${Object.entries(OPTS.people.values).map(([v, l]) => `<button type="button" data-opt="people" data-val="${v}" class="deck-chip ${o.people === v ? 'on' : ''} px-3 rounded-xl text-sm">${l}</button>`).join('')}</div></div>
+    </div></details>
+    <p class="text-[11px] text-[color:var(--muted)] leading-relaxed">💡 كل الصور بنفس الألوان والفكرة، والنص العربي يجيك جاهز تضيفه في Canva لأن الذكاء يخرب الكتابة العربية.</p>`;
+  renderSettingsOpts();
+  renderMakeLabel();
+  icons();
+  $('key-hint').classList.toggle('hidden', !!store.get('of_key', ''));
+}
 function renderQuick() {
+  if (isImages()) return renderImgDeck();
   const o = state.opts;
   const single = o.flow === 'single';
   const n = single ? 1 : Number(o.scenes), sec = Number(o.secs), total = n * sec;
@@ -515,8 +693,7 @@ function renderQuick() {
     <button type="button" data-open="settings" class="text-xs text-[color:var(--muted)] flex items-center gap-1"><i data-lucide="sliders-horizontal" class="w-3.5 h-3.5"></i>الأشخاص، الصوت، المفتاح والنموذج</button>`;
   renderMakeLabel();
   icons();
-  $('settings-opts').innerHTML = Object.entries(OPTS).filter(([k]) => !DECK.includes(k)).map(([k, d]) => `<div class="space-y-1.5"><p class="text-sm font-semibold">${d.label}</p>
-    <div class="flex flex-wrap gap-1.5">${Object.entries(d.values).map(([v, l]) => `<button type="button" data-opt="${k}" data-val="${v}" class="chip ${o[k] === v ? 'on' : ''} tap px-3.5 rounded-xl text-sm">${l}</button>`).join('')}</div></div>`).join('');
+  renderSettingsOpts();
   $('key-hint').classList.toggle('hidden', !!store.get('of_key', ''));
 }
 let stageT = null;
@@ -525,19 +702,19 @@ function renderSkeleton() {
   stopStages();
   $('bar').classList.add('hidden');
   const t0 = Date.now();
-  const stages = state.mode === 'free' ? STAGES.filter((_, i) => i !== 0) : STAGES;
+  const stages = isImages() ? IMG_STAGES : state.mode === 'free' ? STAGES.filter((_, i) => i !== 0) : STAGES;
   const lens = state.surprise ? `<p class="text-sm text-center rise">🎲 العدسة: <b class="text-[color:var(--gold)]">${esc(state.surprise[0])}</b></p>` : '';
   $('result').innerHTML = `<div class="panel p-5 space-y-4 rise" id="stages" style="background: radial-gradient(120% 120% at 100% 0%, rgba(232,196,124,.10), var(--panel) 55%);">
     ${lens}
-    <div class="flex items-center justify-between"><p class="font-bold">المخرج يشتغل على إعلانك 🎬</p><span id="st-time" class="mono text-xs text-[color:var(--muted)]">0s</span></div>
+    <div class="flex items-center justify-between"><p class="font-bold">${isImages() ? 'المصمم يشتغل على صورك 🎨' : 'المخرج يشتغل على إعلانك 🎬'}</p><span id="st-time" class="mono text-xs text-[color:var(--muted)]">0s</span></div>
     <div class="h-1 rounded-full bg-[#151b27] overflow-hidden"><div id="st-bar" class="stage-bar" style="width:4%"></div></div>
     <ol class="space-y-2.5">${stages.map((x, i) => `<li data-st="${i}" class="flex items-center gap-3 text-sm text-[color:var(--muted)]"><span class="w-7 h-7 rounded-full bg-[#151b27] flex items-center justify-center text-sm shrink-0">${x[0]}</span><span class="flex-1">${x[1]}</span><span class="st-mark text-xs"></span></li>`).join('')}</ol>
-    <p id="st-tip" class="text-xs text-center text-[color:var(--muted)] leading-relaxed border-t border-[color:var(--line)] pt-3">💡 ${TIPS[0]}</p>
+    <p id="st-tip" class="text-xs text-center text-[color:var(--muted)] leading-relaxed border-t border-[color:var(--line)] pt-3">💡 ${(isImages() ? IMG_TIPS : TIPS)[0]}</p>
   </div>`;
   const step = () => {
     const el = $('stages'); if (!el) return stopStages();
     const sec = (Date.now() - t0) / 1000;
-    const cur = Math.min(stages.length - 1, Math.floor(sec / 7));
+    const cur = Math.min(stages.length - 1, Math.floor(sec / 8));
     el.querySelectorAll('[data-st]').forEach((li) => {
       const i = +li.dataset.st, m = li.querySelector('.st-mark');
       li.classList.toggle('text-[color:var(--text)]', i <= cur);
@@ -546,7 +723,7 @@ function renderSkeleton() {
     });
     $('st-time').textContent = Math.floor(sec) + 's';
     $('st-bar').style.width = Math.min(95, 4 + sec * 1.6) + '%';
-    $('st-tip').textContent = '💡 ' + TIPS[Math.floor(sec / 6) % TIPS.length];
+    const tips = isImages() ? IMG_TIPS : TIPS; $('st-tip').textContent = '💡 ' + tips[Math.floor(sec / 6) % tips.length];
   };
   step();
   stageT = setInterval(step, 500);
@@ -567,10 +744,85 @@ function beatsHtml(s, sec) {
 function copyBtn(key) {
   return `<button type="button" data-copy="${key}" class="tap px-3 rounded-xl chip text-xs font-semibold flex items-center gap-1 shrink-0"><i data-lucide="copy" class="w-3.5 h-3.5"></i>نسخ</button>`;
 }
+function dnaHtml(r) {
+  return r.product_dna ? `<div class="space-y-1.5"><div class="flex items-center justify-between gap-2"><p class="text-xs font-semibold text-[color:var(--muted)]">🧬 بصمة المنتج (تثبّت شكله في كل البرومبتات)</p>${copyBtn('dna')}</div><div class="prompt mono text-xs">${esc(r.product_dna)}</div></div>` : '';
+}
+function renderImages(r) {
+  const c = r.concept || {};
+  $('result').innerHTML = `
+    <div class="panel p-5 space-y-3" style="background: radial-gradient(120% 120% at 100% 0%, rgba(232,196,124,.12), var(--panel) 55%);">
+      <p class="text-xs font-semibold text-[color:var(--gold)]">فكرة الحملة</p>
+      <h2 class="text-xl font-bold leading-snug">${esc(c.title_ar || r.name)}</h2>
+      ${c.logline_ar ? `<p class="text-sm leading-relaxed text-[#cfd5df]">${esc(c.logline_ar)}</p>` : ''}
+      ${c.palette_ar ? `<p class="text-sm leading-relaxed"><b class="text-[color:var(--gold)]">🎨 الهوية:</b> ${esc(c.palette_ar)}</p>` : ''}
+      ${c.why_ar ? `<p class="text-xs leading-relaxed text-[color:var(--muted)]">${esc(c.why_ar)}</p>` : ''}
+      <div class="flex flex-wrap gap-1.5 text-[11px]">
+        <span class="px-2.5 py-1 rounded-full bg-black/30 border border-[color:var(--line)]">🖼️ ${r.images.length} صور</span>
+        <span class="px-2.5 py-1 rounded-full bg-black/30 border border-[color:var(--line)]">${esc(OPTS.istyle.values[(r.opts || {}).istyle] || '')}</span>
+        ${r.lens ? `<span class="px-2.5 py-1 rounded-full border border-[color:var(--gold)] text-[color:var(--gold)]">🎲 ${esc(r.lens)}</span>` : ''}
+      </div>
+    </div>
+
+    <nav class="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1" aria-label="الصور">${r.images.map((im, i) => `<button type="button" data-jump="${i}" class="shrink-0 w-32 text-right panel p-2.5 hover:border-[color:var(--gold)]">
+      <p class="text-[10px] mono text-[color:var(--gold)]">${esc(im.aspect || '')}</p>
+      <p class="text-xs font-semibold truncate mt-0.5">${esc((IMG_TYPES[im.type] || [])[0] || im.title_ar || 'صورة')}</p></button>`).join('')}</nav>
+
+    <details class="panel">
+      <summary class="tap px-5 flex items-center justify-between cursor-pointer list-none text-sm font-semibold"><span>📦 قراءة المنتج والبحث</span><i data-lucide="chevron-down" class="w-4 h-4 text-[color:var(--muted)]"></i></summary>
+      <div class="px-5 pb-5 space-y-3">
+        <p class="text-sm leading-relaxed whitespace-pre-line text-[#cfd5df]">${esc(r.product_read_ar || '')}</p>
+        ${dnaHtml(r)}
+        ${(r.research_ar || []).length ? `<div class="space-y-1">${r.research_ar.map((t) => `<p class="text-sm text-[#cfd5df]">• ${esc(t)}</p>`).join('')}</div>` : ''}
+        ${(r.sources || []).length ? `<div class="space-y-1">${r.sources.map((s) => `<a href="${esc(s.url)}" target="_blank" rel="noopener" class="block text-xs text-[color:var(--gold)] underline truncate">${esc(s.title)}</a>`).join('')}</div>` : ''}
+      </div>
+    </details>
+
+    ${r.images.map((im, i) => { const t = IMG_TYPES[im.type] || []; const cp = im.copy_ar || {}; const hasCopy = cp.headline || cp.sub || cp.cta; return `
+    <article id="scene-${i}" class="panel p-5 space-y-4 scroll-mt-20 rise ${state.sceneBusy === i ? 'scene-busy' : ''}" style="animation-delay:${i * 60}ms">
+      <div class="flex items-start gap-3">
+        <span class="w-8 h-8 rounded-full gold-btn text-sm font-bold flex items-center justify-center shrink-0">${i + 1}</span>
+        <div class="min-w-0 flex-1"><div class="flex items-center gap-2 flex-wrap"><h3 class="font-bold">${esc(t[0] || im.title_ar || 'صورة')}</h3><span class="mono text-[11px] px-2 py-0.5 rounded-full bg-[#151b27] text-[color:var(--gold)]">${esc(im.aspect || t[1] || '')}</span></div>
+        ${im.idea_ar ? `<p class="text-sm text-[#cfd5df] leading-relaxed mt-0.5">${esc(im.idea_ar)}</p>` : ''}
+        ${t[3] ? `<p class="text-[11px] text-[color:var(--muted)] mt-1">📍 ${esc(t[3])}</p>` : ''}</div>
+      </div>
+      ${state.sceneBusy === i ? '<p class="text-sm text-center text-[color:var(--gold)]"><span class="beat-dot pulse inline-block ml-2"></span>يطوّر هذه الصورة…</p>' : ''}
+      <div class="space-y-2">
+        <div class="flex items-center justify-between gap-2"><p class="text-xs font-semibold"><span class="text-[color:var(--gold)]">البرومبت</span> <span class="text-[color:var(--muted)]">أرفق صورة المنتج · ${words(im.prompt)} كلمة</span></p>${copyBtn('p' + i)}</div>
+        <div class="prompt mono">${esc(im.prompt)}</div>
+        <p class="text-[11px] text-[color:var(--muted)]">في Flow أو Gemini: <b class="text-[color:var(--text)]">Nano Banana Pro</b> · المقاس <b class="text-[color:var(--text)]">${esc(im.aspect || t[1] || '')}</b> · ولّد 2–4 نسخ واختر الأفضل</p>
+      </div>
+      ${hasCopy ? `<div class="rounded-xl border border-[color:var(--line)] p-3 space-y-1">
+        <div class="flex items-center justify-between gap-2"><p class="text-xs font-semibold text-[color:var(--muted)]">✍️ النص العربي (أضفه في Canva)</p>${copyBtn('c' + i)}</div>
+        ${cp.headline ? `<p class="text-base font-bold">${esc(cp.headline)}</p>` : ''}
+        ${cp.sub ? `<p class="text-sm text-[#cfd5df]">${esc(cp.sub)}</p>` : ''}
+        ${cp.cta ? `<span class="inline-block mt-1 px-3 py-1 rounded-lg gold-btn text-xs font-bold">${esc(cp.cta)}</span>` : ''}
+      </div>` : ''}
+      ${(im.fixes || []).length ? `<details class="rounded-xl border border-[color:var(--line)]">
+        <summary class="tap px-3 flex items-center justify-between cursor-pointer list-none text-xs font-semibold"><span>🛠️ إصلاح سريع (عدّل على نفس الصورة)</span><i data-lucide="chevron-down" class="w-4 h-4 text-[color:var(--muted)]"></i></summary>
+        <div class="px-3 pb-3 space-y-3">${im.fixes.map((f, j) => `<div class="space-y-1.5"><div class="flex items-center justify-between gap-2"><p class="text-xs text-[#cfd5df]">إذا ${esc(f.ar || '')}</p>${copyBtn('f' + i + '-' + j)}</div><div class="prompt mono text-xs">${esc(f.prompt || '')}</div></div>`).join('')}</div>
+      </details>` : ''}
+      <div class="flex gap-2 pt-1 border-t border-[color:var(--line)]">
+        <button type="button" data-srev="iup" data-i="${i}" class="tap flex-1 mt-3 rounded-xl chip text-sm font-semibold disabled:opacity-50">🔥 أقوى</button>
+        <button type="button" data-srev="ialt" data-i="${i}" class="tap flex-1 mt-3 rounded-xl chip text-sm font-semibold disabled:opacity-50">🔄 بديل</button>
+      </div>
+    </article>`; }).join('')}
+
+    ${(r.notes_ar || []).length ? `<div class="panel p-5 space-y-1.5"><p class="text-sm font-semibold">💡 ملاحظات</p>${r.notes_ar.map((t) => `<p class="text-xs text-[#cfd5df] leading-relaxed">• ${esc(t)}</p>`).join('')}</div>` : ''}
+
+    <div id="revise-box" class="panel p-4 space-y-2.5">
+      <p class="text-sm font-semibold">عدّل بكلامك</p>
+      <textarea id="revise" rows="2" class="field leading-relaxed" placeholder="مثال: خلّ الخلفية رخام أسود، أو: أبيها بطابع رمضاني، أو: غيّر الفكرة كلها"></textarea>
+      <div class="flex flex-wrap gap-1.5">${['أفخم', 'ألوان أجرأ', 'طابع رمضاني', 'فكرة مختلفة تماماً'].map((t) => `<button type="button" data-rev="${t}" class="chip px-3 py-1.5 rounded-lg text-xs">${t}</button>`).join('')}</div>
+      <button id="btn-revise" type="button" class="tap w-full rounded-xl bg-white text-black font-bold text-sm">طبّق التعديل</button>
+    </div>`;
+  icons();
+}
 function renderResult() {
   const r = state.result;
   $('bar').classList.toggle('hidden', !r);
   if (!r) { $('result').innerHTML = ''; return; }
+  $('copy-all-label').textContent = r.kind === 'images' ? 'نسخ كل الصور' : 'نسخ الإعلان كاملاً';
+  if (r.kind === 'images') return renderImages(r);
   const idea = r.idea || {};
   $('result').innerHTML = `
     <div class="panel p-5 space-y-3" style="background: radial-gradient(120% 120% at 100% 0%, rgba(232,196,124,.12), var(--panel) 55%);">
@@ -586,6 +838,7 @@ function renderResult() {
         <span class="px-2.5 py-1 rounded-full bg-black/30 border border-[color:var(--line)]">${esc(OPTS.aspect.values[r.opts.aspect])}</span>
         ${r.opts.flow !== 'single' && OPTS.rhythm.values[r.opts.rhythm] ? `<span class="px-2.5 py-1 rounded-full bg-black/30 border border-[color:var(--line)]">${esc(OPTS.rhythm.values[r.opts.rhythm])}</span>` : ''}
         ${r.lens ? `<span class="px-2.5 py-1 rounded-full border border-[color:var(--gold)] text-[color:var(--gold)]">🎲 ${esc(r.lens)}</span>` : ''}
+        ${r.qa ? `<span class="px-2.5 py-1 rounded-full border ${r.qa.left ? 'border-amber-400/50 text-amber-200' : 'border-emerald-400/50 text-emerald-300'}" title="فحص التوقيتات والأقسام والملصق والطول">${r.qa.left ? '⚠️ فحص الجودة: راجع التوقيت' : '✅ فحص الجودة' + (r.qa.fixed ? ` · أصلح ${r.qa.fixed}` : '')}</span>` : ''}
       </div>
     </div>
 
@@ -597,6 +850,7 @@ function renderResult() {
       <summary class="tap px-5 flex items-center justify-between cursor-pointer list-none text-sm font-semibold"><span>${r.mode === 'free' ? '📝 الفكرة والبحث' : '📦 قراءة المنتج والبحث'}</span><i data-lucide="chevron-down" class="w-4 h-4 text-[color:var(--muted)]"></i></summary>
       <div class="px-5 pb-5 space-y-3">
         <p class="text-sm leading-relaxed whitespace-pre-line text-[#cfd5df]">${esc(r.product_read_ar || '')}</p>
+        ${dnaHtml(r)}
         ${(r.research_ar || []).length ? `<div class="space-y-1"><p class="text-xs font-semibold text-[color:var(--muted)]">وش تسوي الإعلانات المشابهة</p>${r.research_ar.map((t) => `<p class="text-sm text-[#cfd5df]">• ${esc(t)}</p>`).join('')}</div>` : ''}
         ${(r.sources || []).length ? `<div class="space-y-1">${r.sources.map((s) => `<a href="${esc(s.url)}" target="_blank" rel="noopener" class="block text-xs text-[color:var(--gold)] underline truncate">${esc(s.title)}</a>`).join('')}</div>` : ''}
       </div>
@@ -661,6 +915,11 @@ async function copyText(text, desc) {
   toast('تم النسخ', desc || '');
 }
 function fullText(r) {
+  if (r.kind === 'images') {
+    const L = [`${(r.concept && r.concept.title_ar) || r.name}`, (r.concept && r.concept.logline_ar) || '', ''];
+    r.images.forEach((im, i) => { const t = IMG_TYPES[im.type] || []; const c = im.copy_ar || {}; L.push(`══ ${i + 1}. ${t[0] || im.title_ar || ''} (${im.aspect || t[1] || ''}) ══`, 'أرفق صورة المنتج والصق في Nano Banana Pro:', im.prompt, ''); if (c.headline || c.sub || c.cta) L.push('النص العربي: ' + [c.headline, c.sub, c.cta].filter(Boolean).join(' · '), ''); });
+    return L.join('\n');
+  }
   const L = [`${(r.idea && r.idea.title_ar) || r.name}`, (r.idea && r.idea.logline_ar) || '', ''];
   r.scenes.forEach((s, i) => { L.push(`══ مشهد ${i + 1}: ${s.title_ar || ''} (${(r.opts && r.opts.secs) || ''} ث) ══`, s.beat_ar || '', ...(s.beats || []).map((x) => `  ${x.t || ''}  ${x.ar || ''}`), '', ...(s.image_prompt ? ['① IMAGE (Nano Banana) — ' + (s.attach_ar || ''), s.image_prompt, ''] : ['أرفق صورة المنتج كمرجع في Flow والصق:']), (s.image_prompt ? '② VIDEO (Omni 1.2 Flash · Frames to Video' + (s.last_frame ? ' · same image as first + last frame' : '') + ')' : '🎬 VIDEO (Omni 1.2 Flash · product photo as reference)'), s.video_prompt, '', ...((s.fixes || []).length ? ['🛠️ إصلاح سريع:', ...s.fixes.map((f) => `• ${f.ar || ''}\n${f.prompt || ''}`), ''] : [])); });
   if (r.voiceover_ar) L.push('══ التعليق الصوتي ══', r.voiceover_ar, '');
@@ -678,7 +937,7 @@ function renderHistory() {
   const list = store.get('of7_history', []);
   $('history-list').innerHTML = list.length ? list.map((h, i) => `<div class="flex items-center gap-3 p-2 rounded-xl hover:bg-white/[.03]">
       ${h.thumb ? `<img src="${h.thumb}" alt="" class="w-12 h-12 rounded-lg object-cover">` : '<span class="w-12 h-12 rounded-lg bg-[#151b27] flex items-center justify-center">🎬</span>'}
-      <button type="button" data-hload="${i}" class="flex-1 min-w-0 text-right"><p class="text-sm font-semibold truncate">${esc((h.idea && h.idea.title_ar) || h.name)}</p><p class="text-xs text-[color:var(--muted)] truncate">${esc(h.name || '')} · ${new Date(h.time).toLocaleDateString('ar-SA-u-ca-gregory-nu-latn', { month: 'short', day: 'numeric' })}</p></button>
+      <button type="button" data-hload="${i}" class="flex-1 min-w-0 text-right"><p class="text-sm font-semibold truncate">${h.kind === 'images' ? '🖼️ ' : ''}${esc((h.idea && h.idea.title_ar) || (h.concept && h.concept.title_ar) || h.name)}</p><p class="text-xs text-[color:var(--muted)] truncate">${esc(h.name || '')} · ${new Date(h.time).toLocaleDateString('ar-SA-u-ca-gregory-nu-latn', { month: 'short', day: 'numeric' })}</p></button>
       <button type="button" data-hdel="${i}" aria-label="حذف" class="tap w-10 rounded-lg hover:bg-white/5 flex items-center justify-center text-rose-300"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div>`).join('')
     : '<p class="text-sm text-center text-[color:var(--muted)] py-10">إعلاناتك تُحفظ هنا تلقائياً.</p>';
   icons();
@@ -696,10 +955,10 @@ function resize(im, max, q) {
 }
 
 /* ---------------- Events ---------------- */
-function saveDraft() { const d = { mode: state.mode, name: $('name').value, idea: $('idea').value, opts: state.opts }; store.set('of7_draft', { ...d, img: state.img }) || store.set('of7_draft', d); }
+function saveDraft() { const d = { mode: state.mode, name: $('name').value, idea: $('idea').value, opts: state.opts, imgSel: state.imgSel }; store.set('of7_draft', { ...d, img: state.img }) || store.set('of7_draft', d); }
 document.addEventListener('DOMContentLoaded', () => {
   const d = store.get('of7_draft', null);
-  if (d) { if (d.mode === 'free') state.mode = 'free'; $('name').value = d.name || ''; $('idea').value = d.idea || ''; if (d.img) state.img = d.img; if (d.opts) Object.keys(OPTS).forEach((k) => { if (d.opts[k] && OPTS[k].values[d.opts[k]]) state.opts[k] = d.opts[k]; }); }
+  if (d) { if (['free', 'images'].includes(d.mode)) state.mode = d.mode; if (Array.isArray(d.imgSel)) state.imgSel = d.imgSel.filter((k) => IMG_TYPES[k]); $('name').value = d.name || ''; $('idea').value = d.idea || ''; if (d.img) state.img = d.img; if (d.opts) Object.keys(OPTS).forEach((k) => { if (d.opts[k] && OPTS[k].values[d.opts[k]]) state.opts[k] = d.opts[k]; }); }
   $('s-key').value = store.get('of_key', '');
   renderModels(); renderMode(); renderQuick(); renderResult(); icons();
   loadBrain();
@@ -714,26 +973,32 @@ document.addEventListener('DOMContentLoaded', () => {
     else if (d.open === 'settings') $('settings').classList.remove('hidden');
     else if (d.close) $(d.close).classList.add('hidden');
     else if (d.opt) { state.opts[d.opt] = d.val; renderQuick(); saveDraft(); }
+    else if (d.img) { const k = d.img, i = state.imgSel.indexOf(k); if (i >= 0) state.imgSel.splice(i, 1); else state.imgSel = Object.keys(IMG_TYPES).filter((x) => x === k || state.imgSel.includes(x)); renderQuick(); saveDraft(); }
     else if (d.jump !== undefined) { const el = $('scene-' + d.jump); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
     else if (d.srev) {
       const i = +d.i;
       const ins = { up: 'Make this scene far more powerful: a stronger hook, a more surprising signature moment, tighter choreography, more dramatic camera path and sound hits, a more satisfying hero ending.',
         alt: 'Replace this scene with a completely different, fresh idea that still fits the story and the scenes around it.',
-        fun: 'Make this scene wildly imaginative and unexpected (surreal transformation, scale shift or impossible physics) while the real product stays accurate and sharp.' }[d.srev];
+        fun: 'Make this scene wildly imaginative and unexpected (surreal transformation, scale shift or impossible physics) while the real product stays accurate and sharp.',
+        iup: 'Make this image far more striking and premium: a stronger composition, a more original use of the hero prop or ingredient, more dramatic and controlled light, while the product stays exactly accurate and the text space stays clean.',
+        ialt: 'Replace this image with a completely different, fresh composition that still fits the campaign look, the same output type and aspect ratio.' }[d.srev];
       revise(ins, i);
     }
     else if (d.copy) {
       const r = state.result; if (!r) return;
       const k = d.copy;
-      if (k[0] === 'i') copyText(r.scenes[+k.slice(1)].image_prompt, `مشهد ${+k.slice(1) + 1}: الصقه مع صورة المنتج`);
+      if (k === 'dna') copyText(r.product_dna, 'بصمة المنتج');
+      else if (k[0] === 'p') copyText(r.images[+k.slice(1)].prompt, `صورة ${+k.slice(1) + 1}: الصقه مع صورة المنتج`);
+      else if (k[0] === 'c') { const c = r.images[+k.slice(1)].copy_ar || {}; copyText([c.headline, c.sub, c.cta].filter(Boolean).join('\n'), 'النص العربي للتصميم'); }
+      else if (k[0] === 'i') copyText(r.scenes[+k.slice(1)].image_prompt, `مشهد ${+k.slice(1) + 1}: الصقه مع صورة المنتج`);
       else if (k[0] === 'v') copyText(r.scenes[+k.slice(1)].video_prompt, `مشهد ${+k.slice(1) + 1}: Frames to Video`);
-      else if (k[0] === 'f') { const [a, b] = k.slice(1).split('-').map(Number); const f = ((r.scenes[a] || {}).fixes || [])[b]; if (f) copyText(f.prompt, 'الصقه كتعديل على نفس الفيديو في Flow'); }
+      else if (k[0] === 'f') { const [a, b] = k.slice(1).split('-').map(Number); const f = (((r.kind === 'images' ? r.images : r.scenes)[a] || {}).fixes || [])[b]; if (f) copyText(f.prompt, 'الصقه كتعديل على نفس الفيديو في Flow'); }
       else if (k === 'vo') copyText(r.voiceover_ar, 'التعليق الصوتي');
       else if (k === 'os') copyText(r.onscreen_ar.join('\n'), 'نصوص الشاشة');
     }
     else if (d.rev) { $('revise').value = d.rev; revise(d.rev); }
     else if (t.id === 'btn-revise') revise($('revise').value);
-    else if (d.hload !== undefined) { const h = store.get('of7_history', [])[+d.hload]; if (h) { state.result = h; state.mode = h.mode === 'free' ? 'free' : 'product'; renderMode(); $('name').value = h.name || ''; $('idea').value = h.idea_in || ''; if (h.opts) state.opts = { ...state.opts, ...h.opts }; renderQuick(); renderResult(); setBusy(false); $('history').classList.add('hidden'); window.scrollTo({ top: $('result').offsetTop - 70, behavior: 'smooth' }); } }
+    else if (d.hload !== undefined) { const h = store.get('of7_history', [])[+d.hload]; if (h) { state.result = h; state.mode = ['free', 'images'].includes(h.mode) ? h.mode : 'product'; if (h.kind === 'images') state.imgSel = h.images.map((x) => x.type).filter((k) => IMG_TYPES[k]); renderMode(); $('name').value = h.name || ''; $('idea').value = h.idea_in || ''; if (h.opts) state.opts = { ...state.opts, ...h.opts }; renderQuick(); renderResult(); setBusy(false); $('history').classList.add('hidden'); window.scrollTo({ top: $('result').offsetTop - 70, behavior: 'smooth' }); } }
     else if (d.hdel !== undefined) { const l = store.get('of7_history', []); l.splice(+d.hdel, 1); store.set('of7_history', l); renderHistory(); }
   });
   $('file').addEventListener('change', async (e) => {
