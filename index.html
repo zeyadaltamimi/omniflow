@@ -63,7 +63,7 @@
     <div class="max-w-xl mx-auto px-4 h-14 flex items-center justify-between">
       <div class="flex items-center gap-2.5">
         <div class="w-8 h-8 rounded-lg gold-btn flex items-center justify-center"><i data-lucide="clapperboard" class="w-4 h-4"></i></div>
-        <div class="leading-tight"><p class="text-[15px] font-bold">OmniFlow Studio</p><p class="text-[11px] text-[color:var(--muted)]">فيديو وصور إعلانية من صورة منتج · v11</p></div>
+        <div class="leading-tight"><p class="text-[15px] font-bold">OmniFlow Studio</p><p class="text-[11px] text-[color:var(--muted)]">فيديو وصور إعلانية من صورة منتج · v12</p></div>
       </div>
       <div class="flex items-center gap-1">
         <button id="btn-history" type="button" aria-label="السجل" class="tap w-11 rounded-xl hover:bg-white/5 flex items-center justify-center"><i data-lucide="history" class="w-5 h-5 text-[color:var(--muted)]"></i></button>
@@ -150,7 +150,7 @@
 
 <script>
 /* =========================================================
-   OmniFlow Studio v11 — product photo (+ optional character) → one strong, multi-angle ad + name → one strong, researched ad for Google Flow, tuned for Omni 1.2 Flash
+   OmniFlow Studio v12 — platform-aware (Kling/Seedance/Grok/Wan/Omni), director method · product photo (+ optional character) → one strong, multi-angle ad + name → one strong, researched ad for Google Flow, tuned for Omni 1.2 Flash
    Brain: the "flow-product-ad-prompter" skill, run by Gemini (with Google Search)
    ========================================================= */
 const $ = (id) => document.getElementById(id);
@@ -167,6 +167,8 @@ const OPTS = {
   aspect: { label: 'الأبعاد', values: { '9:16': 'رأسي 9:16', '16:9': 'عريض 16:9', '1:1': 'مربع 1:1' }, def: '9:16' },
   scenes: { label: 'عدد المشاهد', values: { '1': '1', '2': '2', '3': '3', '4': '4', '5': '5' }, def: '3' },
   secs: { label: 'مدة كل مشهد (ثانية)', values: { '4': '4', '6': '6', '8': '8', '10': '10', '12': '12', '15': '15' }, def: '10' },
+  platform: { label: 'المنصة', values: { kling: 'Kling', seedance: 'Seedance', grok: 'Grok Imagine', wan: 'Wan 3.0', omni: 'Google Flow (Omni)' }, def: 'kling' },
+  look: { label: 'نوع التصوير', values: { cinema: '🎬 إعلان سينمائي فاخر', ugc: '📱 جوال واقعي (UGC)', doc: '🎥 وثائقي حقيقي' }, def: 'cinema' },
   story: { label: 'ترابط اللقطات', values: { timeline: '🔗 خط زمني واحد (واقعي)', montage: '🎞️ مونتاج حر' }, def: 'timeline' },
   rhythm: { label: 'إيقاع المقطع', values: { oner: '🎥 لقطة متصلة مصممة', cuts: '✂️ قطعات سريعة متناغمة' }, def: 'oner' },
   creativity: { label: 'جرعة الإبداع', values: { real: '🎯 واقعي', bold: '✨ مبتكر', wild: '🚀 جريء وخيالي' }, def: 'bold' },
@@ -174,7 +176,7 @@ const OPTS = {
   audio: { label: 'الصوت', values: { hype: '🔥 موسيقى حماسية فقط', music: 'موسيقى + مؤثرات', sfx: 'مؤثرات فقط', vo: '🎙️ تعليق عربي داخل المقطع (تجريبي)' }, def: 'hype' },
   istyle: { label: 'طابع الصور', values: { auto: '🎯 تلقائي من المنتج', luxury: '🖤 فخم', vibrant: '🌈 عصري ملوّن', natural: '🌿 طبيعي دافئ', minimal: '⚪ بسيط نظيف' }, def: 'auto' }
 };
-const DECK = ['flow', 'story', 'secs', 'scenes', 'rhythm', 'creativity', 'aspect', 'audio', 'istyle'];
+const DECK = ['platform', 'look', 'flow', 'story', 'secs', 'scenes', 'rhythm', 'creativity', 'aspect', 'audio', 'istyle'];
 /* Image outputs: [label, aspect, brief for the model, where it is used] */
 const IMG_TYPES = {
   main: ['🛍️ الصورة الأساسية', '1:1', 'MAIN STORE IMAGE for the product listing (Salla, Noon, Amazon): the exact product alone, front-facing at a slight 3/4 angle only if it shows the label better, on a pure white (#FFFFFF) seamless background, soft natural contact shadow under it, the product fills about 80% of the frame and is centered, large softbox studio light with clean controlled reflections, every label detail razor sharp. No props, no background color, no scene.', 'صفحة المنتج في المتجر'],
@@ -271,6 +273,46 @@ ${photo ? `- The user attached a SECOND image: a photo of the PERSON who must ap
 - Acting: real, subtle micro-expressions (a breath, a glance, a small satisfied exhale), natural blinking, no posing to camera, no exaggerated smiles, no mouthing words.
 - The person's look fits the setting (if the photo shows a place, e.g. a car in the desert, build the scene in that same world).
 ${single ? '' : '- In every image_prompt where the person appears, write "the exact person from the attached character image" plus the character_dna, and set attach_ar to say that BOTH images (product + character) must be attached.\n'}
+`;
+}
+const PLAT = {
+  omni: { name: 'Google Flow · Omni 1.2 Flash', ref: (n) => n === 1 ? 'the attached image' : 'the attached product image / the attached image of the person', ar: 'في Flow: أرفق الصور كمكونات والصق' },
+  kling: { name: 'Kling 4.0 (Omni Reference)', ref: () => '"image 1" (product) / "image 2" (person)', ar: 'في Kling: ارفع الصور كمراجع بنفس الترتيب والصق' },
+  seedance: { name: 'Seedance 2.5 (Dreamina, all-round reference)', ref: () => '@Image1 (product) / @Image2 (person)', ar: 'في Dreamina: ارفع الصور بالترتيب (@Image1 ثم @Image2) والصق' },
+  grok: { name: 'Grok Imagine (image-to-video)', ref: () => 'the reference image', ar: 'في Grok Imagine: ارفع الصورة والصق' },
+  wan: { name: 'Wan 3.0 (reference-to-video)', ref: () => '"reference image 1" (product) / "reference image 2" (person)', ar: 'في Wan 3.0: ارفع الصور المرجعية بالترتيب والصق' }
+};
+const plat = () => PLAT[state.opts.platform] || PLAT.kling;
+function platformBlock(single) {
+  const p = state.opts.platform;
+  if (p === 'omni') return '';
+  const two = hasChar();
+  const notes = {
+    kling: `- Kling follows shot sequencing and changes of shot size well. Name each reference by its number: the product is "image 1"${two ? ', the person is "image 2"' : ''}. Write "Keep image 1 exactly: ..." and${two ? ' "Keep the person from image 2 exactly: same face and clothes in every shot."' : ''}. Fill "negative_prompt" with a short comma list (Kling has a negative field).`,
+    seedance: `- Seedance reads natural language and the @ reference system. Refer to the product ONLY as "@Image1"${two ? ' and the person ONLY as "@Image2"' : ''} (e.g. "the bottle @Image1", "the man @Image2 drinks"). Start the prompt with what each reference is for (e.g. "@Image1 is the exact product. @Image2 is the main character."). Keep the whole prompt under 900 characters, each shot under 200 characters: dense and concrete. Seedance often blocks uploads of realistic human faces; if a person photo is used, add a note in notes_ar suggesting a face-cropped or slightly stylised reference if the upload is rejected. Fill "negative_prompt" with a short comma list.`,
+    grok: `- Grok Imagine animates ONE starting image. ${two ? 'It takes one image only, so in notes_ar tell the user to first combine the person and the product in one start image (Nano Banana) and write image_prompt for that start frame; the video prompt starts from it.' : 'The product photo is that image.'} Keep the prompt short and visual (about 120–180 words): fewer shots (${single ? 'max 5' : 'max 3 per scene'}), strong verbs, one camera idea per shot. "negative_prompt" = "".`,
+    wan: `- Wan 3.0 reference-to-video: refer to "reference image 1" (product)${two ? ' and "reference image 2" (person)' : ''}. It follows clear shot lists with timecodes. Fill "negative_prompt" with a short comma list (Wan has a negative field).`
+  }[p];
+  return `TARGET MODEL: ${plat().name} (NOT Google Omni). Wherever these instructions mention Omni or Flow, apply the same rule to ${plat().name}. In the PRODUCT and CHARACTER lines, replace "The attached image ... is the exact ... reference" with the reference name for this platform.
+${notes}
+- "fixes" become short follow-up prompts for a re-generation on ${plat().name} (one change each).
+
+`;
+}
+function directorBlock(single) {
+  const look = state.opts.look;
+  const src = { cinema: 'a premium TV commercial shot by a top director on a cinema camera (ARRI Alexa look, anamorphic or prime lenses), with a real crew: dolly, slider, gimbal and handheld. Polished but physically real: real light direction, real skin, real dust and liquid.',
+    ugc: 'a real person filming on an iPhone, vertical, handheld: natural exposure shifts, small focus hunts, slight motion blur on fast moves, imperfect off-centre framing, no cinematic dolly or crane moves, no colour grading. It must look like a genuine TikTok/Snapchat post, not an ad.',
+    doc: 'a documentary crew following a real moment: shoulder-mounted handheld, available light only, the camera reacts a fraction late to action, occasional rack focus searching, no staged posing.' }[look] || '';
+  return `DIRECTOR'S METHOD (from the best working prompt guides; follow it, keep the output simple):
+- SOURCE: the footage is ${src} Every camera and light choice must fit this source.
+- WORLD LOCK: one location, written once in CONTEXT with 3–5 fixed landmarks and which side of frame they are on, the time of day and ONE light logic (source, direction, colour). Landmarks never swap sides.
+- RE-IDENTIFY BY LOOK: after every cut name people by a short visible tag (e.g. "the young man in the white thobe and red shemagh"), never by "he" alone; name the product by its short tag (e.g. "the red SMART ART bottle").
+- EACH SHOT = S-A-C-S: Subject (tag) + Action as a mini chain of 2–3 linked physical steps with small, controlled amplitude (grip → lift → tilt), + one environment reaction (wind moves the shemagh tail, dust drifts in a sunbeam, a drop runs down the glass) + Shot (size × angle × lens × ONE camera move). Emotions only as visible physical cues ("his shoulders drop, a slow exhale"), never "he feels refreshed".
+- MOTION starts on the first frame of each shot; no "slowly fades", "lingers" or empty holds except the final 0.5–1s.
+- KEEP IT REAL: no giant/surreal objects, no magic, unless the user's idea or the SURPRISE lens asks for it${state.opts.creativity === 'wild' ? ' (creativity is set to wild, so one surreal element is allowed)' : ''}. Avoid large risky actions (running, fighting, dancing, several people interacting).
+${look !== 'cinema' ? '- ONE IMPERFECTION per shot, never repeated (focus hunts, framing late, a lens flare from the sun, a hand briefly crossing the lens, exposure dips as a cloud passes), matching the source.\n' : ''}- GOAL: end the prompt (after NEGATIVE) with one line "GOAL: capture ..." — a one-sentence soul anchor the model uses when details conflict (e.g. "GOAL: capture one real, sweaty desert moment where a cold strawberry juice brings instant relief — raw, warm, believable, premium.").
+
 `;
 }
 function continuityBlock(single) {
@@ -388,7 +430,7 @@ D. fixes: 2–3 ready follow-up edit prompts for Omni 1.2's conversational editi
 Real estate: the uploaded photo is the exact property; drone, orbit and top-down reveals; never add or change buildings; areas and prices go to on-screen text.
 Health, pharmacy and cosmetic products: no cure or guarantee language ("cures", "100%", "permanently"); no medical before/after; name ingredients only if printed on the pack or confirmed by research for this exact product.
 
-${charBlock(single)}${coverageBlock(single)}${continuityBlock(single)}6) Also write an Arabic voice-over for the editor (Saudi/Gulf-friendly, fits ${total} seconds, about ${Math.round(total * 2.2)} Arabic words max, compliant) and short Arabic on-screen text lines for the editor.
+${platformBlock(single)}${directorBlock(single)}${charBlock(single)}${coverageBlock(single)}${continuityBlock(single)}6) Also write an Arabic voice-over for the editor (Saudi/Gulf-friendly, fits ${total} seconds, about ${Math.round(total * 2.2)} Arabic words max, compliant) and short Arabic on-screen text lines for the editor.
 
 ${state.brain ? `House rules from the user's brain file (follow them):\n${state.brain}\n\n` : ''}Reply with ONLY one JSON object, no markdown:
 {"product_read_ar": string (3–6 short Arabic lines: name/type, visual identity, printed words, ingredients and what each does, unclear items),
@@ -398,7 +440,7 @@ ${state.brain ? `House rules from the user's brain file (follow them):\n${state.
  "character_prompt": string (English Nano Banana Pro prompt, see CHARACTER),` : ''}` : ''}
  "research_ar": [3–5 short Arabic insights: real benefits/ingredients of this product and what similar ads do],
  "idea": {"title_ar": string, "logline_ar": string (one sentence), "hook_ar": string (the first 2 seconds), "signature_ar": string (the signature moment), "why_ar": string (why it fits this product)},
- "scenes": [{"title_ar": string, "beat_ar": string (one Arabic line describing the scene), "attach_ar": string (what to attach for the IMAGE step), "beats": [{"t": "0–2s", "ar": string (short Arabic description of this beat: camera + action)}] (${beatsFor(sec)} beats covering exactly 0–${sec}s, matching the video_prompt timeline), "image_prompt": string, "video_prompt": string, "last_frame": boolean, "fixes": [{"ar": string (the problem in Arabic, few words), "prompt": string (English edit prompt)}]}],
+ "scenes": [{"title_ar": string, "beat_ar": string (one Arabic line describing the scene), "attach_ar": string (what to attach for the IMAGE step), "beats": [{"t": "0–2s", "ar": string (short Arabic description of this beat: camera + action)}] (${beatsFor(sec)} beats covering exactly 0–${sec}s, matching the video_prompt timeline), "image_prompt": string, "video_prompt": string, "negative_prompt": string (comma list for platforms with a negative field, otherwise ""), "last_frame": boolean, "fixes": [{"ar": string (the problem in Arabic, few words), "prompt": string (English edit prompt)}]}],
  "voiceover_ar": string,
  "onscreen_ar": [string],
  "notes_ar": [string (compliance or production tips, optional)]}`;
@@ -539,6 +581,8 @@ function qaVideo(j, o) {
       const shotPart = (vp.split(/\bSHOTS:/i)[1] || '').split(/\bSOUND:/i)[0];
       const brackets = (shotPart.match(/\[[^\]]{4,}\]/g) || []).map((b) => b.toLowerCase().split(',')[0].trim());
       let same = 0; for (let k = 1; k < brackets.length; k++) if (brackets[k] === brackets[k - 1]) same++;
+      if (!/\bGOAL:/.test(vp)) issues.push(`${tag}end the prompt with a "GOAL: capture ..." line.`);
+      if (state.opts.platform === 'seedance' && !/@Image1/.test(vp)) issues.push(`${tag}refer to the product as @Image1${hasChar() ? ' and the person as @Image2' : ''}.`);
       if (state.opts.story !== 'montage' && !/continuous/i.test((vp.split(/\bPRODUCT:/i)[0] || ''))) issues.push(`${tag}CONTEXT must say "One continuous real-time moment in one location, covered from multiple camera angles." and every shot must continue the previous action.`);
       if (brackets.length < Math.min(4, tc.length)) issues.push(`${tag}start every SHOTS line with its camera setup in brackets [shot size, angle, lens, move].`);
       else if (same) issues.push(`${tag}${same} pair(s) of consecutive shots use the same shot size; change shot size and angle on every cut.`);
@@ -553,7 +597,7 @@ function qaVideo(j, o) {
       const lost = quoted.filter((q) => !vp.includes(q) && !(s.image_prompt || '').includes(q));
       if (lost.length) issues.push(`${tag}the label words ${lost.map((q) => "'" + q + "'").join(', ')} from product_dna must appear exactly in the prompt.`);
     }
-    const w = words(vp), lim = (single ? wordsSingle(sec) : wordsFor(sec)).split('–').map(Number);
+    const w = words(vp), lim = (state.opts.platform === 'grok' ? '120–200' : state.opts.platform === 'seedance' ? '120–190' : single ? wordsSingle(sec) : wordsFor(sec)).split('–').map(Number);
     if (w < lim[0] * 0.75) issues.push(`${tag}too short (${w} words); write ${lim.join('–')} words.`);
     if (w > lim[1] * 1.35) issues.push(`${tag}too long (${w} words); keep it to ${lim.join('–')} words, critical things first.`);
     checks.push({ tc: tcOk, shots: tc.length, words: w });
@@ -765,6 +809,8 @@ function renderQuick() {
     <details class="pt-2"><summary class="tap flex items-center justify-between cursor-pointer list-none text-xs font-semibold text-[color:var(--muted)]"><span>⚙️ تخصيص (اختياري) · ${esc(OPTS.audio.values[o.audio])}</span><i data-lucide="chevron-down" class="w-4 h-4"></i></summary>
     <div class="pt-2 space-y-3.5">
       ${row('flow', 'px-3')}
+      ${row('platform', 'px-3')}
+      ${row('look', 'px-3')}
       ${row('story', 'px-3')}
       ${row('audio', 'px-3')}
       ${row('secs', 'w-12 font-semibold num')}
@@ -962,7 +1008,8 @@ function renderResult() {
       <div class="space-y-2">
         <div class="flex items-center justify-between gap-2"><p class="text-xs font-semibold">${s.image_prompt ? `<span class="text-emerald-300">② الفيديو</span> <span class="text-[color:var(--muted)]">Frames to Video · ${s.last_frame ? 'أرفق الصورة كإطار أول وأخير' : 'أرفق الصورة كإطار أول'} · ${words(s.video_prompt)} كلمة</span>` : `<span class="text-emerald-300">🎬 برومبت الإعلان</span> <span class="text-[color:var(--muted)]">${r.character_dna ? 'أرفق صورة المنتج + صورة الشخصية' : 'أرفق صورة المنتج'} والصق · ${words(s.video_prompt)} كلمة</span>`}</p>${copyBtn('v' + i)}</div>
         <div class="prompt mono">${esc(s.video_prompt)}</div>
-        <p class="text-[11px] text-[color:var(--muted)]">في Flow: <b class="text-[color:var(--text)]">Omni 1.2 Flash</b> · مدة <b class="text-[color:var(--text)]">${esc(r.opts.secs)} ثواني</b> · ${esc(OPTS.aspect.values[r.opts.aspect] || r.opts.aspect)} · جرّب 360p ثم 720p</p>
+        ${s.negative_prompt ? `<div class="space-y-1.5"><div class="flex items-center justify-between gap-2"><p class="text-xs font-semibold text-rose-200">🚫 البرومبت السلبي <span class="text-[color:var(--muted)] font-normal">(في خانة Negative)</span></p>${copyBtn('n' + i)}</div><div class="prompt mono text-xs">${esc(s.negative_prompt)}</div></div>` : ''}
+        <p class="text-[11px] text-[color:var(--muted)]">${esc((PLAT[r.opts.platform] || PLAT.omni).ar)}: <b class="text-[color:var(--text)]">${esc((PLAT[r.opts.platform] || PLAT.omni).name)}</b> · مدة <b class="text-[color:var(--text)]">${esc(r.opts.secs)} ثواني</b> · ${esc(OPTS.aspect.values[r.opts.aspect] || r.opts.aspect)} · جرّب 360p ثم 720p</p>
       </div>
       ${(s.fixes || []).length ? `<details class="rounded-xl border border-[color:var(--line)]">
         <summary class="tap px-3 flex items-center justify-between cursor-pointer list-none text-xs font-semibold"><span>🛠️ إصلاح سريع داخل Flow (بدون إعادة توليد)</span><i data-lucide="chevron-down" class="w-4 h-4 text-[color:var(--muted)]"></i></summary>
@@ -1089,6 +1136,7 @@ document.addEventListener('DOMContentLoaded', () => {
       else if (k[0] === 'p') copyText(r.images[+k.slice(1)].prompt, `صورة ${+k.slice(1) + 1}: الصقه مع صورة المنتج`);
       else if (k[0] === 'c') { const c = r.images[+k.slice(1)].copy_ar || {}; copyText([c.headline, c.sub, c.cta].filter(Boolean).join('\n'), 'النص العربي للتصميم'); }
       else if (k[0] === 'i') copyText(r.scenes[+k.slice(1)].image_prompt, `مشهد ${+k.slice(1) + 1}: الصقه مع صورة المنتج`);
+      else if (k[0] === 'n') copyText(r.scenes[+k.slice(1)].negative_prompt, 'الصقه في خانة Negative');
       else if (k[0] === 'v') copyText(r.scenes[+k.slice(1)].video_prompt, `مشهد ${+k.slice(1) + 1}: Frames to Video`);
       else if (k[0] === 'f') { const [a, b] = k.slice(1).split('-').map(Number); const f = (((r.kind === 'images' ? r.images : r.scenes)[a] || {}).fixes || [])[b]; if (f) copyText(f.prompt, 'الصقه كتعديل على نفس الفيديو في Flow'); }
       else if (k === 'vo') copyText(r.voiceover_ar, 'التعليق الصوتي');
