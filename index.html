@@ -167,13 +167,14 @@ const OPTS = {
   aspect: { label: 'الأبعاد', values: { '9:16': 'رأسي 9:16', '16:9': 'عريض 16:9', '1:1': 'مربع 1:1' }, def: '9:16' },
   scenes: { label: 'عدد المشاهد', values: { '1': '1', '2': '2', '3': '3', '4': '4', '5': '5' }, def: '3' },
   secs: { label: 'مدة كل مشهد (ثانية)', values: { '4': '4', '6': '6', '8': '8', '10': '10', '12': '12', '15': '15' }, def: '10' },
+  story: { label: 'ترابط اللقطات', values: { timeline: '🔗 خط زمني واحد (واقعي)', montage: '🎞️ مونتاج حر' }, def: 'timeline' },
   rhythm: { label: 'إيقاع المقطع', values: { oner: '🎥 لقطة متصلة مصممة', cuts: '✂️ قطعات سريعة متناغمة' }, def: 'oner' },
   creativity: { label: 'جرعة الإبداع', values: { real: '🎯 واقعي', bold: '✨ مبتكر', wild: '🚀 جريء وخيالي' }, def: 'bold' },
   people: { label: 'الأشخاص', values: { faces: 'يظهر الوجه', nofaces: 'بدون وجوه', none: 'بدون أشخاص' }, def: 'faces' },
   audio: { label: 'الصوت', values: { hype: '🔥 موسيقى حماسية فقط', music: 'موسيقى + مؤثرات', sfx: 'مؤثرات فقط', vo: '🎙️ تعليق عربي داخل المقطع (تجريبي)' }, def: 'hype' },
   istyle: { label: 'طابع الصور', values: { auto: '🎯 تلقائي من المنتج', luxury: '🖤 فخم', vibrant: '🌈 عصري ملوّن', natural: '🌿 طبيعي دافئ', minimal: '⚪ بسيط نظيف' }, def: 'auto' }
 };
-const DECK = ['flow', 'secs', 'scenes', 'rhythm', 'creativity', 'aspect', 'audio', 'istyle'];
+const DECK = ['flow', 'story', 'secs', 'scenes', 'rhythm', 'creativity', 'aspect', 'audio', 'istyle'];
 /* Image outputs: [label, aspect, brief for the model, where it is used] */
 const IMG_TYPES = {
   main: ['🛍️ الصورة الأساسية', '1:1', 'MAIN STORE IMAGE for the product listing (Salla, Noon, Amazon): the exact product alone, front-facing at a slight 3/4 angle only if it shows the label better, on a pure white (#FFFFFF) seamless background, soft natural contact shadow under it, the product fills about 80% of the frame and is centered, large softbox studio light with clean controlled reflections, every label detail razor sharp. No props, no background color, no scene.', 'صفحة المنتج في المتجر'],
@@ -264,11 +265,23 @@ function charBlock(single) {
   return `CHARACTER (a real person is the star of this ad and uses the product on camera):
 ${photo ? `- The user attached a SECOND image: a photo of the PERSON who must appear (image 2; image 1 is the product). Read him/her precisely.` : `- There is no person photo: DESIGN one original, believable character who fits this product, its buyer and the idea${desc ? ` (the user's description, follow it: "${desc}")` : ''}. Saudi/Gulf look and modest styling unless the user says otherwise. Give him/her a clear look that is easy to keep consistent (one distinctive clothing item or color).
 - Write "character_prompt" (110–160 words) for Nano Banana Pro that creates the character reference image FIRST, which the user then attaches in Flow: photorealistic, medium-close shot from the chest up, slight 3/4 angle, face fully visible and sharp, neutral calm expression, the exact clothing and headwear with colors and patterns, plain softly lit light-grey studio background, soft even daylight, natural skin texture with pores and fine detail, 85mm lens, no props, no product, no text, no watermark.`}
+- CLOTHING: the user's words override what you read from the photo. A Saudi/Gulf man wears a THOBE by default (a long ankle-length robe with a collar and buttoned placket; a dark or coloured long collared garment in the photo IS a thobe, never call it a shirt, suit, jacket or utility shirt), with a shemagh or ghutra (with or without agal as shown). A Saudi/Gulf woman wears an elegant abaya. Only use other clothes if the user asks.
 - Write "character_dna" (40–70 words, English): apparent age, build, skin tone, face shape, eyes, eyebrows, facial hair, hair, distinctive marks (sweat, dust, etc. only if shown or wanted), exact clothing and headwear with colors and patterns, accessories. Use it word-for-word wherever the person appears so the face and clothes never drift.
 - The person USES the product the real way (drinks it, sprays it, applies it, holds it, wears it) in a believable action chain: reach → grip → open/lift → use → reaction/result, with the product label turned toward the camera at least twice.
 - Acting: real, subtle micro-expressions (a breath, a glance, a small satisfied exhale), natural blinking, no posing to camera, no exaggerated smiles, no mouthing words.
 - The person's look fits the setting (if the photo shows a place, e.g. a car in the desert, build the scene in that same world).
 ${single ? '' : '- In every image_prompt where the person appears, write "the exact person from the attached character image" plus the character_dna, and set attach_ar to say that BOTH images (product + character) must be attached.\n'}
+`;
+}
+function continuityBlock(single) {
+  if (state.opts.story === 'montage') return '';
+  return `CONTINUITY — ONE TIMELINE (most important rule; this is what makes it a real ad and not scattered AI clips):
+- The whole ${single ? 'clip' : 'film'} is ONE continuous event in real time: the same place, the same minute, the same light direction and time of day, the same weather. No time jumps, no new locations, no unrelated cutaways, unless the user's idea asks for them.
+- Write a simple cause-and-effect action chain first (e.g. driving in the heat → glances at the bottle → reaches for it → twists the cap → drinks → lowers it with relief → sets it on the dashboard → drives on refreshed), then cover that chain with different shots. Each shot starts exactly where the previous shot's action ended (cut on action), so the viewer always knows what happens next.
+- Different angles show the SAME moment, never a different moment: a macro or insert is the very object at that instant (the drops on the bottle in his hand right after the sip), not an abstract product beauty shot.
+- Keep continuity of everything: props stay where they were put (if the bottle was in the icebox, it comes from the icebox; once on the dashboard, it stays there), the cap stays off after opening, the juice level drops after drinking, sweat/dust stay on the face, the camera respects the 180° rule (the person always faces the same screen direction).
+- The ending is the natural end of the same moment (the bottle resting where it was set, the person continuing what he was doing), not a separate studio packshot.
+${single ? '- In CONTEXT write "One continuous real-time moment in one location, covered from multiple camera angles." In the universal shot grammar, the FLASH BURST becomes 2–3 quick angles of the SAME instant.\n' : '- Every scene continues directly from the last frame of the previous scene.\n'}
 `;
 }
 function coverageBlock(single) {
@@ -375,7 +388,7 @@ D. fixes: 2–3 ready follow-up edit prompts for Omni 1.2's conversational editi
 Real estate: the uploaded photo is the exact property; drone, orbit and top-down reveals; never add or change buildings; areas and prices go to on-screen text.
 Health, pharmacy and cosmetic products: no cure or guarantee language ("cures", "100%", "permanently"); no medical before/after; name ingredients only if printed on the pack or confirmed by research for this exact product.
 
-${charBlock(single)}${coverageBlock(single)}6) Also write an Arabic voice-over for the editor (Saudi/Gulf-friendly, fits ${total} seconds, about ${Math.round(total * 2.2)} Arabic words max, compliant) and short Arabic on-screen text lines for the editor.
+${charBlock(single)}${coverageBlock(single)}${continuityBlock(single)}6) Also write an Arabic voice-over for the editor (Saudi/Gulf-friendly, fits ${total} seconds, about ${Math.round(total * 2.2)} Arabic words max, compliant) and short Arabic on-screen text lines for the editor.
 
 ${state.brain ? `House rules from the user's brain file (follow them):\n${state.brain}\n\n` : ''}Reply with ONLY one JSON object, no markdown:
 {"product_read_ar": string (3–6 short Arabic lines: name/type, visual identity, printed words, ingredients and what each does, unclear items),
@@ -526,6 +539,7 @@ function qaVideo(j, o) {
       const shotPart = (vp.split(/\bSHOTS:/i)[1] || '').split(/\bSOUND:/i)[0];
       const brackets = (shotPart.match(/\[[^\]]{4,}\]/g) || []).map((b) => b.toLowerCase().split(',')[0].trim());
       let same = 0; for (let k = 1; k < brackets.length; k++) if (brackets[k] === brackets[k - 1]) same++;
+      if (state.opts.story !== 'montage' && !/continuous/i.test((vp.split(/\bPRODUCT:/i)[0] || ''))) issues.push(`${tag}CONTEXT must say "One continuous real-time moment in one location, covered from multiple camera angles." and every shot must continue the previous action.`);
       if (brackets.length < Math.min(4, tc.length)) issues.push(`${tag}start every SHOTS line with its camera setup in brackets [shot size, angle, lens, move].`);
       else if (same) issues.push(`${tag}${same} pair(s) of consecutive shots use the same shot size; change shot size and angle on every cut.`);
       if (miss.length) issues.push(`${tag}missing sections: ${miss.join(' ')}`);
@@ -547,6 +561,8 @@ function qaVideo(j, o) {
   if (state.mode !== 'free' && !String(j.product_dna || '').trim()) issues.push('product_dna is empty.');
   if (hasChar()) {
     if (!String(j.character_dna || '').trim()) issues.push('character_dna is empty.');
+    else if (/سعود|خليج|بدو|ثوب/.test($('idea').value + state.charDesc) && !/thobe|abaya/i.test(j.character_dna)) issues.push('character_dna must dress the Saudi character in a thobe (man) or abaya (woman), never a shirt or suit; update the CHARACTER section too.');
+    if (/\b(suit|blazer|utility shirt|t-shirt|button-up shirt)\b/i.test(j.character_dna || '')) issues.push('replace the shirt/suit in character_dna and CHARACTER with a thobe (or abaya).');
     if (state.charMode === 'create' && words(j.character_prompt) < 60) issues.push('character_prompt is missing or too short (110–160 words).');
   }
   return { issues, checks };
@@ -749,6 +765,7 @@ function renderQuick() {
     <details class="pt-2"><summary class="tap flex items-center justify-between cursor-pointer list-none text-xs font-semibold text-[color:var(--muted)]"><span>⚙️ تخصيص (اختياري) · ${esc(OPTS.audio.values[o.audio])}</span><i data-lucide="chevron-down" class="w-4 h-4"></i></summary>
     <div class="pt-2 space-y-3.5">
       ${row('flow', 'px-3')}
+      ${row('story', 'px-3')}
       ${row('audio', 'px-3')}
       ${row('secs', 'w-12 font-semibold num')}
       ${single ? '' : row('scenes', 'w-11 font-semibold num')}
