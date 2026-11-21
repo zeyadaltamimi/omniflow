@@ -83,6 +83,8 @@
       </div>
       <div id="drop" class="panel overflow-hidden"></div>
       <input id="file" type="file" accept="image/*" class="hidden">
+      <div id="charbox" class="panel p-4 space-y-3"></div>
+      <input id="file2" type="file" accept="image/*" class="hidden">
 
       <div id="name-wrap" class="space-y-1.5">
         <label for="name" class="text-sm font-semibold">اسم المنتج</label>
@@ -148,7 +150,7 @@
 
 <script>
 /* =========================================================
-   OmniFlow Studio v9.0 — one photo + name → one strong, researched ad for Google Flow, tuned for Omni 1.2 Flash
+   OmniFlow Studio v11 — product photo (+ optional character) → one strong, multi-angle ad + name → one strong, researched ad for Google Flow, tuned for Omni 1.2 Flash
    Brain: the "flow-product-ad-prompter" skill, run by Gemini (with Google Search)
    ========================================================= */
 const $ = (id) => document.getElementById(id);
@@ -206,7 +208,8 @@ const wordsFor = (sec) => sec <= 4 ? '110–150' : sec <= 6 ? '140–190' : sec 
 const imgWordsFor = () => '110–170';
 const shotsFor = (sec) => sec <= 6 ? '5–7' : sec <= 10 ? '8–11' : '11–14';
 const wordsSingle = (sec) => sec <= 6 ? '170–230' : sec <= 10 ? '230–320' : '300–400';
-const state = { img: null, opts: {}, result: null, busy: false, sources: [], mode: 'product', brain: '', surprise: null, sceneBusy: -1, imgSel: IMG_DEF.slice() };
+const state = { img: null, opts: {}, result: null, busy: false, sources: [], mode: 'product', brain: '', surprise: null, sceneBusy: -1, imgSel: IMG_DEF.slice(), char: null, charMode: 'none', charDesc: '' };
+const hasChar = () => !isImages() && state.charMode !== 'none';
 const isImages = () => state.mode === 'images';
 
 /* Models: preferred order (quality/price). The list from the API replaces this when available. */
@@ -252,6 +255,36 @@ async function loadBrain() {
 }
 Object.keys(OPTS).forEach((k) => { state.opts[k] = OPTS[k].def; });
 
+/* ---------------- Character + cinematic coverage ---------------- */
+const shotsChar = (sec) => sec <= 6 ? '5–6' : sec <= 10 ? '7–9' : '9–12';
+function charBlock(single) {
+  if (!hasChar()) return '';
+  const photo = state.charMode === 'photo' && state.char;
+  const desc = state.charDesc.trim();
+  return `CHARACTER (a real person is the star of this ad and uses the product on camera):
+${photo ? `- The user attached a SECOND image: a photo of the PERSON who must appear (image 2; image 1 is the product). Read him/her precisely.` : `- There is no person photo: DESIGN one original, believable character who fits this product, its buyer and the idea${desc ? ` (the user's description, follow it: "${desc}")` : ''}. Saudi/Gulf look and modest styling unless the user says otherwise. Give him/her a clear look that is easy to keep consistent (one distinctive clothing item or color).
+- Write "character_prompt" (110–160 words) for Nano Banana Pro that creates the character reference image FIRST, which the user then attaches in Flow: photorealistic, medium-close shot from the chest up, slight 3/4 angle, face fully visible and sharp, neutral calm expression, the exact clothing and headwear with colors and patterns, plain softly lit light-grey studio background, soft even daylight, natural skin texture with pores and fine detail, 85mm lens, no props, no product, no text, no watermark.`}
+- Write "character_dna" (40–70 words, English): apparent age, build, skin tone, face shape, eyes, eyebrows, facial hair, hair, distinctive marks (sweat, dust, etc. only if shown or wanted), exact clothing and headwear with colors and patterns, accessories. Use it word-for-word wherever the person appears so the face and clothes never drift.
+- The person USES the product the real way (drinks it, sprays it, applies it, holds it, wears it) in a believable action chain: reach → grip → open/lift → use → reaction/result, with the product label turned toward the camera at least twice.
+- Acting: real, subtle micro-expressions (a breath, a glance, a small satisfied exhale), natural blinking, no posing to camera, no exaggerated smiles, no mouthing words.
+- The person's look fits the setting (if the photo shows a place, e.g. a car in the desert, build the scene in that same world).
+${single ? '' : '- In every image_prompt where the person appears, write "the exact person from the attached character image" plus the character_dna, and set attach_ar to say that BOTH images (product + character) must be attached.\n'}
+`;
+}
+function coverageBlock(single) {
+  const people = state.opts.people !== 'none';
+  return `CINEMATIC COVERAGE (this is what makes it look like a real commercial and not an AI clip):
+- Shoot it like a real director with several camera setups, not one angle. ${single ? 'Every SHOTS line' : (state.opts.rhythm === 'oner' ? 'The continuous camera path' : 'Every block')} must change BOTH the shot size AND the camera angle from the one before it; never two consecutive shots from the same angle or distance.
+- Use at least ${single ? '6' : '4'} different setups from: extreme close-up (${people ? 'eyes, lips, fingers on the cap, ' : ''}label macro), close-up, medium, wide establishing, low-angle hero, high angle or top-down, ${people ? 'over-the-shoulder, profile silhouette, POV of the person, ' : ''}insert of the product${people ? ' in hand' : ''}, shot through a foreground element (glass, window, windshield, leaves, steam), tracking/dolly, slow orbit, crane rise, handheld.
+- Vary the lens: 24mm wide for space, 50mm natural, 85mm portrait with creamy background blur, 100mm macro for textures and droplets.
+- Motivated camera moves only (push-in on emotion, orbit on the reveal, tilt following the action). Mix in rack focus pulls and one speed ramp on the key physical moment (the pour, the first sip, the splash).
+- Cut on action and use match cuts (the bottle lifting from the table cuts to it reaching the lips; a round cap cuts to the round sun).
+- Anti-AI realism: natural light with real direction, slight handheld micro-shake in human moments, real liquid physics (condensation drops, a swallow, a small spill), visible texture (skin pores, dust, fabric weave), no plastic skin, no frozen faces, no slow empty drift.
+${single ? '- Put each shot\'s setup in brackets at the start of its SHOTS line, e.g. "2.1-3.0s [ECU, low angle, 100mm macro, slow push-in] condensation runs down the bottle as fingers close around it."\n' : ''}- Fill "beats" so the Arabic lines name the angle too (e.g. "لقطة قريبة جداً من زاوية منخفضة: …").
+
+`;
+}
+
 /* ---------------- The brain: skill + creative direction ---------------- */
 function systemPrompt() {
   if (isImages()) return imagesPrompt();
@@ -295,9 +328,9 @@ THE IDEA: one concept, not options, specific to THIS product:
 - Audio must always be specified or the model invents it. Follow the "Audio:" instruction below exactly; if it says music only, write no sound effects anywhere in the prompt.
 - Negatives: there is no negative field. End with a short "Exclusions:" line that never contradicts a requested layer.
 
-${single ? `5) ONE-SHOT MODE: the whole ad is ONE Omni 1.2 Flash clip of EXACTLY ${sec} seconds. In Flow the user attaches ONLY the product photo as a reference image and pastes your prompt (no first frame, no image step). Return exactly ONE item in "scenes" with image_prompt set to "" and last_frame false.
+${single ? `5) ONE-SHOT MODE: the whole ad is ONE Omni 1.2 Flash clip of EXACTLY ${sec} seconds. In Flow the user attaches ${hasChar() ? 'TWO reference images (the product photo and the character image)' : 'ONLY the product photo as a reference image'} and pastes your prompt (no first frame, no image step). Return exactly ONE item in "scenes" with image_prompt set to "" and last_frame false.
 
-Plan ${shotsFor(sec)} shots inside the ${sec} seconds, about one per second, with varied lengths (0.2s flash frames up to 2s holds), contiguous timecodes from 0 to exactly ${sec}s.
+Plan ${hasChar() ? shotsChar(sec) : shotsFor(sec)} shots inside the ${sec} seconds, about one per second, with varied lengths (0.2s flash frames up to 2s holds), contiguous timecodes from 0 to exactly ${sec}s.
 
 UNIVERSAL SHOT GRAMMAR (adapt to ANY product; pick the beats that fit, in this order):
 1. TEASE: the product as a hero, untouched (unlit candle, capped bottle, closed box, raw property at dawn), plus 1–2 macro details of its real design (rim, cap, label script, texture, stitching, stone).
@@ -311,9 +344,9 @@ Category hints: candle/home fragrance (match, flame, melt pool, botanical); perf
 
 The prompt (English, the "video_prompt" field, ${wordsSingle(sec)} words) must use EXACTLY these labeled sections, each on its own line:
 CONTEXT: "A ${sec}-second photorealistic luxury [category] commercial, vertical ${o.aspect}." number of shots, cut style (fast cuts of about a second, macro-led and cinematic), when people appear.
-PRODUCT: "The attached image is the exact product reference." then the product_dna word-for-word, plus the style of the label words (e.g. "lavender" in gold script). End with "Never redesigned, never relabeled."
-THE LOOK: mood in 3 words, a tight 2–3 color palette taken from the product against a chosen background, one motivated light source, and "[X] is the only botanical/prop."
-SHOTS: one line per shot "0-1.3s ...", action first, framing and camera in few words.
+PRODUCT: "${hasChar() ? 'The attached product image is the exact product reference.' : 'The attached image is the exact product reference.'}" then the product_dna word-for-word, plus the style of the label words (e.g. "lavender" in gold script). End with "Never redesigned, never relabeled."
+${hasChar() ? 'CHARACTER: "The attached image of the person is the exact character reference." then the character_dna word-for-word, then "Same face, same hair, same clothes and headwear in every shot; never recast."\n' : ''}THE LOOK: mood in 3 words, a tight 2–3 color palette taken from the product against a chosen background, one motivated light source, and "[X] is the only botanical/prop."
+SHOTS: one line per shot "0-1.3s [shot size, angle, lens, camera move] action...", action right after the bracket. Follow the CINEMATIC COVERAGE rules below.
 SOUND: ${o.audio === 'hype' ? 'music only: one energetic, driving trailer-style track (name the genre and BPM) that builds to the flash burst, hits on the cuts and lands with a final hit on the hero frame. No sound effects, no dialogue, no voice.' : o.audio === 'music' ? 'a trailer bed building to the flash burst then a warm resolving chord, plus the real sounds of the trigger and ingredient moments (match crack, spray hiss, pour, foam). No dialogue.' : o.audio === 'sfx' ? 'no music; only the real sounds of each moment. No dialogue.' : `an off-screen Gulf Arabic voice-over line in quotes (about ${Math.round(sec * 2)} words, describe the voice) over a soft music bed; the people on screen do not speak.`}
 NEGATIVE: "No text or captions; the only lettering is the product's own label." plus no logo animation, no end card, no extra products, and the people rule (e.g. "No face or body, only hands."), then "Exactly ${sec} seconds."
 
@@ -342,11 +375,14 @@ D. fixes: 2–3 ready follow-up edit prompts for Omni 1.2's conversational editi
 Real estate: the uploaded photo is the exact property; drone, orbit and top-down reveals; never add or change buildings; areas and prices go to on-screen text.
 Health, pharmacy and cosmetic products: no cure or guarantee language ("cures", "100%", "permanently"); no medical before/after; name ingredients only if printed on the pack or confirmed by research for this exact product.
 
-6) Also write an Arabic voice-over for the editor (Saudi/Gulf-friendly, fits ${total} seconds, about ${Math.round(total * 2.2)} Arabic words max, compliant) and short Arabic on-screen text lines for the editor.
+${charBlock(single)}${coverageBlock(single)}6) Also write an Arabic voice-over for the editor (Saudi/Gulf-friendly, fits ${total} seconds, about ${Math.round(total * 2.2)} Arabic words max, compliant) and short Arabic on-screen text lines for the editor.
 
 ${state.brain ? `House rules from the user's brain file (follow them):\n${state.brain}\n\n` : ''}Reply with ONLY one JSON object, no markdown:
 {"product_read_ar": string (3–6 short Arabic lines: name/type, visual identity, printed words, ingredients and what each does, unclear items),
- "product_dna": string (English, see PRODUCT DNA; "" in free scene mode),
+ "product_dna": string (English, see PRODUCT DNA; "" in free scene mode),${hasChar() ? `
+ "character_dna": string (English, see CHARACTER),
+ "character_ar": string (one Arabic line describing the character),${state.charMode === 'create' ? `
+ "character_prompt": string (English Nano Banana Pro prompt, see CHARACTER),` : ''}` : ''}
  "research_ar": [3–5 short Arabic insights: real benefits/ingredients of this product and what similar ads do],
  "idea": {"title_ar": string, "logline_ar": string (one sentence), "hook_ar": string (the first 2 seconds), "signature_ar": string (the signature moment), "why_ar": string (why it fits this product)},
  "scenes": [{"title_ar": string, "beat_ar": string (one Arabic line describing the scene), "attach_ar": string (what to attach for the IMAGE step), "beats": [{"t": "0–2s", "ar": string (short Arabic description of this beat: camera + action)}] (${beatsFor(sec)} beats covering exactly 0–${sec}s, matching the video_prompt timeline), "image_prompt": string, "video_prompt": string, "last_frame": boolean, "fixes": [{"ar": string (the problem in Arabic, few words), "prompt": string (English edit prompt)}]}],
@@ -404,7 +440,10 @@ function previousIdeas() {
 
 function userParts(extra) {
   const parts = [];
+  const twoImgs = hasChar() && state.charMode === 'photo' && state.char;
+  if (twoImgs && state.img) parts.push({ text: 'Image 1 — the PRODUCT:' });
   if (state.img) parts.push({ inlineData: { mimeType: 'image/jpeg', data: state.img.full.split(',')[1] } });
+  if (twoImgs) { parts.push({ text: 'Image 2 — the CHARACTER (the person who must appear and use the product):' }); parts.push({ inlineData: { mimeType: 'image/jpeg', data: state.char.full.split(',')[1] } }); }
   if (isImages()) {
     parts.push({ text: [
       `Product name (Arabic): ${$('name').value.trim() || '(read it from the photo)'}`,
@@ -423,6 +462,7 @@ function userParts(extra) {
     `User idea (Arabic): ${$('idea').value.trim() || 'none — invent the best idea'}`,
     `Reference photo attached: ${state.img ? (state.mode === 'free' ? 'yes (use it as the visual reference for the scene)' : 'yes') : 'no'}`,
     state.opts.flow === 'single' ? `Aspect ratio: ${state.opts.aspect}. One-shot mode: ONE clip of ${state.opts.secs}s, product photo attached as reference in Flow.` : `Aspect ratio: ${state.opts.aspect}. Scenes: ${state.opts.scenes} × ${state.opts.secs}s (total ${Number(state.opts.scenes) * Number(state.opts.secs)}s).`,
+    hasChar() ? (state.charMode === 'photo' && state.char ? 'Character: photo attached (image 2). In Flow the user attaches both images.' : `Character: create a new one${state.charDesc.trim() ? ' — description (Arabic): ' + state.charDesc.trim() : ' that fits the product'}.`) : '',
     state.surprise ? `SURPRISE ME — build the whole idea through this creative lens, make it unexpected and unforgettable, but keep the real product accurate: ${state.surprise[1]}` : '',
     extra || ''
   ].filter(Boolean).join('\n') });
@@ -482,9 +522,14 @@ function qaVideo(j, o) {
     for (let k = 1; tcOk && k < tc.length; k++) if (Math.abs(tc[k][0] - tc[k - 1][1]) > 0.05 || tc[k][1] <= tc[k][0]) tcOk = false;
     if (!tcOk) issues.push(`${tag}the timecodes must be contiguous blocks from 0 to exactly ${sec}s with no gaps or overlaps (found: ${tc.map((x) => x[0] + '-' + x[1] + 's').join(', ') || 'none'}).`);
     if (single) {
-      const miss = ['CONTEXT:', 'PRODUCT:', 'THE LOOK:', 'SHOTS:', 'SOUND:', 'NEGATIVE:'].filter((h) => !vp.toUpperCase().includes(h));
+      const miss = ['CONTEXT:', 'PRODUCT:'].concat(hasChar() ? ['CHARACTER:'] : [], ['THE LOOK:', 'SHOTS:', 'SOUND:', 'NEGATIVE:']).filter((h) => !vp.toUpperCase().includes(h));
+      const shotPart = (vp.split(/\bSHOTS:/i)[1] || '').split(/\bSOUND:/i)[0];
+      const brackets = (shotPart.match(/\[[^\]]{4,}\]/g) || []).map((b) => b.toLowerCase().split(',')[0].trim());
+      let same = 0; for (let k = 1; k < brackets.length; k++) if (brackets[k] === brackets[k - 1]) same++;
+      if (brackets.length < Math.min(4, tc.length)) issues.push(`${tag}start every SHOTS line with its camera setup in brackets [shot size, angle, lens, move].`);
+      else if (same) issues.push(`${tag}${same} pair(s) of consecutive shots use the same shot size; change shot size and angle on every cut.`);
       if (miss.length) issues.push(`${tag}missing sections: ${miss.join(' ')}`);
-      if (single && tc.length && tc.length < Math.round(sec * 0.6)) issues.push(`${tag}only ${tc.length} shots; plan ${shotsFor(sec)} shots.`);
+      if (single && tc.length && tc.length < Math.round(sec * 0.6)) issues.push(`${tag}only ${tc.length} shots; plan ${hasChar() ? shotsChar(sec) : shotsFor(sec)} shots.`);
     } else {
       if (!/Audio:/i.test(vp)) issues.push(`${tag}missing the "Audio:" line.`);
       if (!/Keep unchanged:/i.test(vp)) issues.push(`${tag}missing the "Keep unchanged:" line.`);
@@ -500,6 +545,10 @@ function qaVideo(j, o) {
     checks.push({ tc: tcOk, shots: tc.length, words: w });
   });
   if (state.mode !== 'free' && !String(j.product_dna || '').trim()) issues.push('product_dna is empty.');
+  if (hasChar()) {
+    if (!String(j.character_dna || '').trim()) issues.push('character_dna is empty.');
+    if (state.charMode === 'create' && words(j.character_prompt) < 60) issues.push('character_prompt is missing or too short (110–160 words).');
+  }
   return { issues, checks };
 }
 function qaImages(j) {
@@ -521,7 +570,7 @@ async function generate(extra) {
     out = await callGemini(userParts(extra), false);
   }
   let j = out.json;
-  const base = { sources: out.sources, mode: state.mode, name: state.mode === 'free' ? 'مشهد حر' : $('name').value.trim(), idea_in: $('idea').value.trim(), opts: { ...state.opts }, lens: state.surprise ? state.surprise[0] : '', time: Date.now() };
+  const base = { sources: out.sources, mode: state.mode, name: state.mode === 'free' ? 'مشهد حر' : $('name').value.trim(), idea_in: $('idea').value.trim(), opts: { ...state.opts }, lens: state.surprise ? state.surprise[0] : '', time: Date.now(), charMode: hasChar() ? state.charMode : 'none' };
   if (isImages()) {
     if (!j.images || !j.images.length) throw new Error('ما رجعت صور، جرّب مرة ثانية');
     qaImages(j);
@@ -551,6 +600,7 @@ async function make(surprise) {
   if (!store.get('of_key', '')) { $('settings').classList.remove('hidden'); toast('أضف مفتاح Gemini أولاً', '', true); return; }
   if (state.mode !== 'free' && !state.img && !$('name').value.trim()) { toast('أضف صورة المنتج أو اسمه', '', true); return; }
   if (isImages() && !state.imgSel.length) { toast('اختر صورة وحدة على الأقل', '', true); return; }
+  if (hasChar() && state.charMode === 'photo' && !state.char) { toast('ارفع صورة الشخص أو اختر «اصنع شخصية»', '', true); return; }
   if (state.mode === 'free' && !$('idea').value.trim()) { toast('اكتب فكرة المشهد', '', true); $('idea').focus(); return; }
   setBusy(true, state.surprise ? 'يجهّز لك مفاجأة…' : isImages() ? 'يصمم الصور…' : 'يصنع الإعلان…');
   if (state.surprise) toast('🎲 العدسة: ' + state.surprise[0], 'فكرة جريئة غير متوقعة');
@@ -621,6 +671,7 @@ function renderMode() {
   $('idea').rows = free ? 4 : 2;
   $('idea').placeholder = free ? 'مثال: بدوي يمشي في صحراء قاحلة ومعه حصان يمسكه باللجام، الكاميرا من الخلف بدون وجه، يغني وهو حزين والشمس غايبة' : isImages() ? 'مثال: ألوان ذهبية فخمة، أو: عرض 30% بمناسبة اليوم الوطني' : 'مثال: أبيه فخم وفيه مجلس، أو: المساحة 450م² وتظهر على العقار';
   renderDrop();
+  renderChar();
   renderQuick();
 }
 function renderDrop() {
@@ -634,6 +685,22 @@ function renderDrop() {
         <span class="w-14 h-14 rounded-2xl bg-[#151b27] flex items-center justify-center"><i data-lucide="image-plus" class="w-7 h-7 text-[color:var(--gold)]"></i></span>
         <span class="font-semibold">${state.mode === 'free' ? 'صورة مرجعية (اختياري)' : 'ارفع صورة المنتج'}</span>
         <span class="text-xs text-[color:var(--muted)]">${state.mode === 'free' ? 'شخص أو مكان تبيه يظهر في المشهد' : isImages() ? 'يحافظ على شكل المنتج وملصقه في كل الصور' : 'يقرأ منها الشكل والمكونات ويحافظ عليها في الفيديو'}</span></button>`;
+  icons();
+}
+function renderChar() {
+  const box = $('charbox');
+  if (isImages()) { box.classList.add('hidden'); return; }
+  box.classList.remove('hidden');
+  const m = state.charMode;
+  const chip = (v, l) => `<button type="button" data-cmode="${v}" aria-pressed="${m === v}" class="deck-chip ${m === v ? 'on' : ''} flex-1 px-2 rounded-xl text-sm">${l}</button>`;
+  box.innerHTML = `
+    <div class="flex items-center justify-between"><p class="text-sm font-semibold">👤 الشخصية</p><p class="text-[11px] text-[color:var(--muted)]">${m === 'none' ? 'اختياري' : m === 'photo' ? 'يثبّت وجهه ولبسه في كل اللقطات' : 'يصمم لك شخصية + برومبت صورتها'}</p></div>
+    <div class="flex gap-1.5">${chip('none', 'بدون')}${chip('photo', '📷 صورة شخص')}${chip('create', '✨ اصنع شخصية')}</div>
+    ${m === 'photo' ? (state.char
+      ? `<div class="flex items-center gap-3"><img src="${state.char.thumb}" alt="الشخصية" class="w-16 h-16 rounded-xl object-cover"><div class="flex gap-1.5"><button type="button" data-act="upload2" class="chip px-3 py-1.5 rounded-lg text-xs font-semibold">تغيير</button><button type="button" data-act="remove-char" class="chip px-3 py-1.5 rounded-lg text-xs font-semibold text-rose-300">حذف</button></div></div>`
+      : `<button type="button" data-act="upload2" class="w-full py-5 rounded-xl border border-dashed border-[color:var(--line)] flex items-center justify-center gap-2 text-sm"><i data-lucide="user-plus" class="w-5 h-5 text-[color:var(--gold)]"></i>ارفع صورة الشخص</button>`) : ''}
+    ${m === 'create' ? `<textarea id="char-desc" rows="2" class="field leading-relaxed text-sm" placeholder="اختياري: شاب سعودي عشريني بشماغ أحمر وثوب أسود، أو: بنت أنيقة بعباية بيج. اتركه فاضي ويختار المناسب للمنتج">${esc(state.charDesc)}</textarea>` : ''}`;
+  const cd = $('char-desc'); if (cd) cd.addEventListener('input', () => { state.charDesc = cd.value; saveDraft(); });
   icons();
 }
 function renderMakeLabel() {
@@ -842,6 +909,13 @@ function renderResult() {
       </div>
     </div>
 
+    ${r.character_dna ? `<div class="panel p-5 space-y-3">
+      <div class="flex items-center justify-between gap-2"><p class="text-sm font-semibold">👤 الشخصية ${r.character_prompt ? '<span class="text-xs font-normal text-[color:var(--muted)]">ولّدها أولاً في Nano Banana Pro</span>' : ''}</p>${r.character_prompt ? copyBtn('ch') : ''}</div>
+      ${r.character_ar ? `<p class="text-sm text-[#cfd5df]">${esc(r.character_ar)}</p>` : ''}
+      ${r.character_prompt ? `<div class="prompt mono">${esc(r.character_prompt)}</div><p class="text-[11px] text-[color:var(--muted)]">بعدها في Flow: أرفق صورة المنتج + صورة الشخصية اللي طلعت، والصق برومبت الإعلان.</p>` : ''}
+      <details><summary class="tap flex items-center justify-between cursor-pointer list-none text-xs font-semibold text-[color:var(--muted)]"><span>بصمة الشخصية (تثبيت الوجه واللبس)</span><i data-lucide="chevron-down" class="w-4 h-4"></i></summary><div class="flex justify-end mt-2">${copyBtn('cdna')}</div><div class="prompt mono text-xs mt-2">${esc(r.character_dna)}</div></details>
+    </div>` : ''}
+
     <nav class="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1" aria-label="المشاهد">${r.scenes.map((s, i) => `<button type="button" data-jump="${i}" class="shrink-0 w-32 text-right panel p-2.5 hover:border-[color:var(--gold)]">
       <p class="text-[10px] mono text-[color:var(--gold)]">${i * Number(r.opts.secs)}–${(i + 1) * Number(r.opts.secs)}s</p>
       <p class="text-xs font-semibold truncate mt-0.5">${i + 1}. ${esc(s.title_ar || 'مشهد')}</p></button>`).join('')}</nav>
@@ -869,7 +943,7 @@ function renderResult() {
         <div class="prompt mono">${esc(s.image_prompt)}</div>
       </div>` : ''}
       <div class="space-y-2">
-        <div class="flex items-center justify-between gap-2"><p class="text-xs font-semibold">${s.image_prompt ? `<span class="text-emerald-300">② الفيديو</span> <span class="text-[color:var(--muted)]">Frames to Video · ${s.last_frame ? 'أرفق الصورة كإطار أول وأخير' : 'أرفق الصورة كإطار أول'} · ${words(s.video_prompt)} كلمة</span>` : `<span class="text-emerald-300">🎬 برومبت الإعلان</span> <span class="text-[color:var(--muted)]">أرفق صورة المنتج والصق · ${words(s.video_prompt)} كلمة</span>`}</p>${copyBtn('v' + i)}</div>
+        <div class="flex items-center justify-between gap-2"><p class="text-xs font-semibold">${s.image_prompt ? `<span class="text-emerald-300">② الفيديو</span> <span class="text-[color:var(--muted)]">Frames to Video · ${s.last_frame ? 'أرفق الصورة كإطار أول وأخير' : 'أرفق الصورة كإطار أول'} · ${words(s.video_prompt)} كلمة</span>` : `<span class="text-emerald-300">🎬 برومبت الإعلان</span> <span class="text-[color:var(--muted)]">${r.character_dna ? 'أرفق صورة المنتج + صورة الشخصية' : 'أرفق صورة المنتج'} والصق · ${words(s.video_prompt)} كلمة</span>`}</p>${copyBtn('v' + i)}</div>
         <div class="prompt mono">${esc(s.video_prompt)}</div>
         <p class="text-[11px] text-[color:var(--muted)]">في Flow: <b class="text-[color:var(--text)]">Omni 1.2 Flash</b> · مدة <b class="text-[color:var(--text)]">${esc(r.opts.secs)} ثواني</b> · ${esc(OPTS.aspect.values[r.opts.aspect] || r.opts.aspect)} · جرّب 360p ثم 720p</p>
       </div>
@@ -921,6 +995,8 @@ function fullText(r) {
     return L.join('\n');
   }
   const L = [`${(r.idea && r.idea.title_ar) || r.name}`, (r.idea && r.idea.logline_ar) || '', ''];
+  if (r.character_prompt) L.push('══ 👤 الشخصية: ولّدها أولاً في Nano Banana Pro ══', r.character_prompt, '');
+  if (r.character_dna) L.push('Character DNA: ' + r.character_dna, '');
   r.scenes.forEach((s, i) => { L.push(`══ مشهد ${i + 1}: ${s.title_ar || ''} (${(r.opts && r.opts.secs) || ''} ث) ══`, s.beat_ar || '', ...(s.beats || []).map((x) => `  ${x.t || ''}  ${x.ar || ''}`), '', ...(s.image_prompt ? ['① IMAGE (Nano Banana) — ' + (s.attach_ar || ''), s.image_prompt, ''] : ['أرفق صورة المنتج كمرجع في Flow والصق:']), (s.image_prompt ? '② VIDEO (Omni 1.2 Flash · Frames to Video' + (s.last_frame ? ' · same image as first + last frame' : '') + ')' : '🎬 VIDEO (Omni 1.2 Flash · product photo as reference)'), s.video_prompt, '', ...((s.fixes || []).length ? ['🛠️ إصلاح سريع:', ...s.fixes.map((f) => `• ${f.ar || ''}\n${f.prompt || ''}`), ''] : [])); });
   if (r.voiceover_ar) L.push('══ التعليق الصوتي ══', r.voiceover_ar, '');
   if ((r.onscreen_ar || []).length) L.push('══ نصوص الشاشة ══', ...r.onscreen_ar.map((t) => '• ' + t));
@@ -955,10 +1031,10 @@ function resize(im, max, q) {
 }
 
 /* ---------------- Events ---------------- */
-function saveDraft() { const d = { mode: state.mode, name: $('name').value, idea: $('idea').value, opts: state.opts, imgSel: state.imgSel }; store.set('of7_draft', { ...d, img: state.img }) || store.set('of7_draft', d); }
+function saveDraft() { const d = { mode: state.mode, name: $('name').value, idea: $('idea').value, opts: state.opts, imgSel: state.imgSel, charMode: state.charMode, charDesc: state.charDesc }; store.set('of7_draft', { ...d, img: state.img, char: state.char }) || store.set('of7_draft', { ...d, img: state.img }) || store.set('of7_draft', d); }
 document.addEventListener('DOMContentLoaded', () => {
   const d = store.get('of7_draft', null);
-  if (d) { if (['free', 'images'].includes(d.mode)) state.mode = d.mode; if (Array.isArray(d.imgSel)) state.imgSel = d.imgSel.filter((k) => IMG_TYPES[k]); $('name').value = d.name || ''; $('idea').value = d.idea || ''; if (d.img) state.img = d.img; if (d.opts) Object.keys(OPTS).forEach((k) => { if (d.opts[k] && OPTS[k].values[d.opts[k]]) state.opts[k] = d.opts[k]; }); }
+  if (d) { if (['free', 'images'].includes(d.mode)) state.mode = d.mode; if (Array.isArray(d.imgSel)) state.imgSel = d.imgSel.filter((k) => IMG_TYPES[k]); $('name').value = d.name || ''; $('idea').value = d.idea || ''; if (d.img) state.img = d.img; if (d.char) state.char = d.char; if (['none', 'photo', 'create'].includes(d.charMode)) state.charMode = d.charMode; state.charDesc = d.charDesc || ''; if (d.opts) Object.keys(OPTS).forEach((k) => { if (d.opts[k] && OPTS[k].values[d.opts[k]]) state.opts[k] = d.opts[k]; }); }
   $('s-key').value = store.get('of_key', '');
   renderModels(); renderMode(); renderQuick(); renderResult(); icons();
   loadBrain();
@@ -970,6 +1046,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (d.mode) { state.mode = d.mode; renderMode(); saveDraft(); }
     else if (d.act === 'upload') $('file').click();
     else if (d.act === 'remove-img') { state.img = null; renderDrop(); saveDraft(); }
+    else if (d.act === 'upload2') $('file2').click();
+    else if (d.act === 'remove-char') { state.char = null; renderChar(); saveDraft(); }
+    else if (d.cmode) { state.charMode = d.cmode; if (d.cmode !== 'none' && state.opts.people === 'none') state.opts.people = 'faces'; renderChar(); renderQuick(); saveDraft(); }
     else if (d.open === 'settings') $('settings').classList.remove('hidden');
     else if (d.close) $(d.close).classList.add('hidden');
     else if (d.opt) { state.opts[d.opt] = d.val; renderQuick(); saveDraft(); }
@@ -988,6 +1067,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const r = state.result; if (!r) return;
       const k = d.copy;
       if (k === 'dna') copyText(r.product_dna, 'بصمة المنتج');
+      else if (k === 'ch') copyText(r.character_prompt, 'الصقه في Nano Banana Pro لصنع الشخصية');
+      else if (k === 'cdna') copyText(r.character_dna, 'بصمة الشخصية');
       else if (k[0] === 'p') copyText(r.images[+k.slice(1)].prompt, `صورة ${+k.slice(1) + 1}: الصقه مع صورة المنتج`);
       else if (k[0] === 'c') { const c = r.images[+k.slice(1)].copy_ar || {}; copyText([c.headline, c.sub, c.cta].filter(Boolean).join('\n'), 'النص العربي للتصميم'); }
       else if (k[0] === 'i') copyText(r.scenes[+k.slice(1)].image_prompt, `مشهد ${+k.slice(1) + 1}: الصقه مع صورة المنتج`);
@@ -1005,6 +1086,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const f = e.target.files && e.target.files[0]; e.target.value = '';
     if (!f || !/^image\//.test(f.type)) return;
     try { const im = await readImage(f); state.img = { full: resize(im, 1024, 0.86), thumb: resize(im, 160, 0.7) }; renderDrop(); saveDraft(); }
+    catch (err) { toast('تعذّرت قراءة الصورة', '', true); }
+  });
+  $('file2').addEventListener('change', async (e) => {
+    const f = e.target.files && e.target.files[0]; e.target.value = '';
+    if (!f || !/^image\//.test(f.type)) return;
+    try { const im = await readImage(f); state.char = { full: resize(im, 1024, 0.86), thumb: resize(im, 160, 0.7) }; renderChar(); saveDraft(); }
     catch (err) { toast('تعذّرت قراءة الصورة', '', true); }
   });
   ['name', 'idea'].forEach((id) => $(id).addEventListener('input', saveDraft));
